@@ -1,0 +1,58 @@
+@startuml UC-Atendimento
+
+title Casos de Uso — Serviço de Atendimento
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Médico"        as medico
+actor "Recepcionista" as recep
+actor "Paciente"      as paciente
+
+rectangle "Serviço de Atendimento (8083)" {
+
+    usecase "Registrar Atendimento"     as UC01
+    usecase "Listar Atendimentos"       as UC02
+    usecase "Buscar Atendimento por ID" as UC03
+    usecase "Listar do paciente"        as UC04
+    usecase "Listar do médico"          as UC05
+    usecase "Atualizar Atendimento"     as UC06
+    usecase "Remover Atendimento"       as UC07
+
+    usecase "Validar Agendamento\n(Feign → agendamento)" as UC10 <<include>>
+    usecase "Registrar Diagnóstico"  as UC11 <<include>>
+    usecase "Registrar Prescrição"   as UC12 <<include>>
+}
+
+medico --> UC01
+medico --> UC02
+medico --> UC03
+medico --> UC04
+medico --> UC05
+medico --> UC06
+
+recep  --> UC02
+recep  --> UC03
+
+paciente --> UC04
+
+UC01 ..> UC10 : <<include>>
+UC01 ..> UC11 : <<include>>
+UC01 ..> UC12 : <<include>>
+
+note right of UC10
+  GET /v1/agendamentos/{id}
+  Verifica existência e
+  status válido (AGENDADO/CONFIRMADO).
+end note
+
+note bottom of UC11
+  Campo: diagnostico (TEXT)
+end note
+
+note bottom of UC12
+  Campo: prescricao (TEXT)
+end note
+
+@enduml

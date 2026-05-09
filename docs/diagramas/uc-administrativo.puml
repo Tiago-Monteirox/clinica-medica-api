@@ -1,0 +1,85 @@
+@startuml UC-Administrativo
+
+title Casos de Uso — Serviço Administrativo
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Administrador" as admin
+actor "Recepcionista" as recep
+
+rectangle "Serviço Administrativo (8081)" {
+
+    package "Autenticação" {
+        usecase "Login"             as UC00
+        usecase "Cadastrar Usuário" as UC01
+    }
+
+    package "Convênio" {
+        usecase "Listar Convênios"  as UC10
+        usecase "Cadastrar Convênio" as UC11
+        usecase "Atualizar Convênio" as UC12
+        usecase "Remover Convênio"   as UC13
+    }
+
+    package "Paciente" {
+        usecase "Cadastrar Paciente"        as UC20
+        usecase "Listar Pacientes"          as UC21
+        usecase "Buscar Paciente por ID"    as UC22
+        usecase "Atualizar Paciente"        as UC23
+        usecase "Remover Paciente"          as UC24
+        usecase "Vincular Convênio\n(opcional)" as UC25 <<extend>>
+    }
+
+    package "Médico" {
+        usecase "Cadastrar Médico"      as UC30
+        usecase "Listar Médicos"        as UC31
+        usecase "Buscar Médico por ID"  as UC32
+        usecase "Atualizar Médico"      as UC33
+        usecase "Remover Médico"        as UC34
+    }
+
+}
+
+' Autenticação — pública
+admin --> UC00
+recep --> UC00
+admin --> UC01
+
+' Convênios — só admin
+admin --> UC10
+admin --> UC11
+admin --> UC12
+admin --> UC13
+recep --> UC10
+
+' Pacientes — admin e recep
+admin --> UC20
+admin --> UC21
+admin --> UC22
+admin --> UC23
+admin --> UC24
+recep --> UC20
+recep --> UC21
+recep --> UC22
+recep --> UC23
+UC20 ..> UC25 : <<extend>>
+UC23 ..> UC25 : <<extend>>
+
+' Médicos — admin gerencia, recep só consulta
+admin --> UC30
+admin --> UC31
+admin --> UC32
+admin --> UC33
+admin --> UC34
+recep --> UC31
+recep --> UC32
+
+note right of UC25
+  Paciente pode
+  ter NENHUM ou UM convênio
+  (FK opcional)
+end note
+
+@enduml

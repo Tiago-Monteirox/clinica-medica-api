@@ -1,0 +1,56 @@
+@startuml UC-Agendamento
+
+title Casos de Uso — Serviço de Agendamento
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Recepcionista" as recep
+actor "Paciente"      as paciente
+actor "Médico"        as medico
+
+rectangle "Serviço de Agendamento (8082)" {
+
+    usecase "Criar Agendamento"         as UC01
+    usecase "Listar Agendamentos"       as UC02
+    usecase "Buscar Agendamento por ID" as UC03
+    usecase "Listar agenda do médico"   as UC04
+    usecase "Listar agenda do paciente" as UC05
+    usecase "Atualizar Agendamento"     as UC06
+    usecase "Cancelar Agendamento"      as UC07
+
+    usecase "Validar Paciente\n(Feign → administrativo)" as UC10 <<include>>
+    usecase "Validar Médico\n(Feign → administrativo)"   as UC11 <<include>>
+    usecase "Validar conflito\nde horário"               as UC12 <<include>>
+}
+
+recep --> UC01
+recep --> UC02
+recep --> UC03
+recep --> UC06
+recep --> UC07
+
+paciente --> UC03
+paciente --> UC05
+paciente --> UC07
+
+medico   --> UC03
+medico   --> UC04
+
+UC01 ..> UC10 : <<include>>
+UC01 ..> UC11 : <<include>>
+UC01 ..> UC12 : <<include>>
+UC06 ..> UC12 : <<include>>
+
+note right of UC10
+  GET /v1/pacientes/{id}/exists
+  no administrativo.
+  Se 404 → propagar.
+end note
+
+note right of UC11
+  GET /v1/medicos/{id}/exists
+end note
+
+@enduml

@@ -1,0 +1,52 @@
+@startuml Arquitetura
+
+title Clínica Médica — Arquitetura de Microsserviços
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+package "Cliente" {
+    [Postman / Frontend] as cliente
+}
+
+package "API Gateway" {
+    component "gateway:8080\nSpring Cloud Gateway\n+ JWT Filter" as gw
+}
+
+package "Microsserviços" {
+    component "administrativo:8081\nConvenio + Paciente + Medico\n+ Auth (login/register)" as adm
+    component "agendamento:8082\nAgendamento" as ag
+    component "atendimento:8083\nAtendimento" as at
+}
+
+database "MySQL\n3307\nclinica_administrativo" as db_adm
+database "MySQL\n3308\nclinica_agendamento" as db_ag
+database "MySQL\n3309\nclinica_atendimento" as db_at
+
+cliente --> gw : HTTPS\n+ Bearer JWT
+
+gw --> adm : /api/admin/**\n/auth/**
+gw --> ag  : /api/agendamentos/**
+gw --> at  : /api/atendimentos/**
+
+ag ..> adm : Feign\nGET /v1/pacientes/{id}/exists\nGET /v1/medicos/{id}/exists
+at ..> ag  : Feign\nGET /v1/agendamentos/{id}
+
+adm --> db_adm
+ag  --> db_ag
+at  --> db_at
+
+note bottom of adm
+  Fonte de verdade
+  para cadastros mestres.
+  Database-per-service.
+end note
+
+note right of gw
+  Única porta
+  de entrada externa.
+  Valida JWT,
+  encaminha por path.
+end note
+
+@enduml

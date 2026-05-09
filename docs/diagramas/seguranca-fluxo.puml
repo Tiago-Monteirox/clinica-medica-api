@@ -1,0 +1,42 @@
+@startuml Seguranca-Fluxo
+
+title Fluxo de autenticação JWT
+
+actor Cliente
+participant "Gateway\n:8080" as GW
+participant "administrativo\n:8081" as ADM
+participant "agendamento\n:8082" as AG
+database "MySQL\nadministrativo" as DB
+
+== 1. Login ==
+Cliente -> GW : POST /auth/login\n{email, senha}
+GW -> ADM : POST /auth/login\n(rota pública, StripPrefix)
+ADM -> DB : SELECT u FROM usuarios WHERE email=?
+DB --> ADM : usuario
+ADM -> ADM : BCrypt.matches(senha, hash)
+ADM -> ADM : JwtService.generate()\n(HMAC-SHA256, claim role)
+ADM --> GW : 200 { token, expiresIn, role }
+GW --> Cliente : 200 { token }
+
+== 2. Requisição autenticada ==
+Cliente -> GW : POST /api/agendamentos/v1/agendamentos\nAuthorization: Bearer eyJ...
+GW -> GW : JwtAuthenticationFilter\n• Extrai header\n• Valida assinatura\n• Valida exp
+alt token inválido
+    GW --> Cliente : 401 Unauthorized
+else token válido
+    GW -> AG : POST /v1/agendamentos\nX-User-Email: ...\nX-User-Role: RECEPCIONISTA
+    AG -> AG : JwtAuthFilter (defesa em profundidade)
+    AG -> AG : @PreAuthorize("hasAnyRole('ADMIN','RECEPCIONISTA')")
+    alt role insuficiente
+        AG --> GW : 403 Forbidden
+    else autorizado
+        AG -> ADM : Feign GET /v1/pacientes/{id}/exists
+        AG -> ADM : Feign GET /v1/medicos/{id}/exists
+        AG -> AG : valida conflito de horário
+        AG -> AG : repository.save(...)
+        AG --> GW : 201 { ApiResponse }
+    end
+    GW --> Cliente : 201 { ApiResponse }
+end
+
+@enduml

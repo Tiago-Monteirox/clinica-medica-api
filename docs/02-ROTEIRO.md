@@ -92,17 +92,20 @@ Started AdministrativoApplication in X.XXX seconds
 
 **4. Mapear o que já existe**
 
+> **Atenção:** o `administrativo` já tem `spring-boot-starter-security` no `pom.xml`.
+> A partir do PASSO 2 o Spring Security está ativo e bloqueia POST/PUT/DELETE por CSRF.
+> Estes comandos só funcionam depois que o `SecurityConfig` do PASSO 3 for criado.
+
 ```bash
-# Testar o CRUD de Convênio (já implementado no commons — ainda há migração a fazer)
-curl -s http://localhost:8081/v1/convenios
+PASS="senha-gerada-no-log"   # substitua pela senha que aparece no console ao subir
+
+# Listar convênios
+curl -s -u user:$PASS http://localhost:8081/v1/convenios | jq .
 
 # Criar um convênio de teste
-curl -s -X POST http://localhost:8081/v1/convenios \
+curl -s -u user:$PASS -X POST http://localhost:8081/v1/convenios \
   -H "Content-Type: application/json" \
-  -d '{"nome":"Unimed Teste","descricao":"Plano Básico"}'
-
-# Listar novamente — deve aparecer o criado
-curl -s http://localhost:8081/v1/convenios
+  -d '{"nome":"Unimed Teste","descricao":"Plano Básico"}' | jq .
 ```
 
 **5. Entender o que precisa mudar**
@@ -718,6 +721,62 @@ public class ConvenioController {
 > **Warning do IntelliJ "has private attribute in ApiResponse"?** É um falso positivo.
 > O IntelliJ não processa as anotações Lombok durante análise estática. Em tempo de compilação e execução
 > o Lombok gera os getters públicos que o Jackson usa. O código compila e funciona corretamente.
+
+---
+
+### Arquivo 5 — `config/SecurityConfig.java` (temporário, sem JWT)
+
+> **Por que criar agora?** O `spring-boot-starter-security` já está no `pom.xml` desde o PASSO 2.
+> Sem nenhuma configuração, o Spring Security bloqueia POST/PUT/DELETE via CSRF — qualquer `curl` de escrita
+> retorna 403 ou 401 silencioso. Este `SecurityConfig` desabilita CSRF e usa HTTP Basic stateless para
+> desenvolvimento. Ele será **inteiramente substituído** pela versão com JWT no PASSO 7.
+>
+> **Armadilha: não adicione `PasswordEncoder` aqui.** O Spring gera uma senha temporária em plain text
+> (`Using generated security password: uuid...`). Se você registrar um `BCryptPasswordEncoder` como bean,
+> o Spring Security vai tentar verificar esse UUID como hash BCrypt e a autenticação vai falhar
+> silenciosamente — o `curl` retorna vazio sem mensagem de erro. O `PasswordEncoder` só entra no PASSO 7,
+> junto com o `UserDetailsService` que já armazena as senhas pré-hasheadas.
+
+```java
+// administrativo/src/main/java/br/edu/imepac/administrativo/config/SecurityConfig.java
+package br.edu.imepac.administrativo.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+
+import static org.springframework.security.config.Customizer.withDefaults;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/actuator/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                .httpBasic(withDefaults())
+                .build();
+    }
+    // PasswordEncoder será adicionado no PASSO 7 junto com JwtAuthFilter e UserDetailsService
+}
+```
 
 ---
 

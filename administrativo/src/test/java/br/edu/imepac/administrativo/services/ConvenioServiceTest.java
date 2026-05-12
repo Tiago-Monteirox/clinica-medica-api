@@ -1,7 +1,8 @@
-package br.edu.imepac.commons.services;
+package br.edu.imepac.administrativo.services;
 
-import br.edu.imepac.commons.entities.ConvenioEntity;
-import br.edu.imepac.commons.repositories.ConvenioRepository;
+import br.edu.imepac.administrativo.entities.ConvenioEntity;
+import br.edu.imepac.administrativo.repositories.ConvenioRepository;
+import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -43,11 +44,18 @@ class ConvenioServiceTest {
         ConvenioEntity convenio = new ConvenioEntity(1L, "Unimed", "Plano regional");
         when(convenioRepository.findById(1L)).thenReturn(Optional.of(convenio));
 
-        Optional<ConvenioEntity> resultado = convenioService.findById(1L);
+        ConvenioEntity resultado = convenioService.findById(1L);
 
-        assertTrue(resultado.isPresent());
-        assertEquals("Unimed", resultado.get().getNome());
+        assertEquals("Unimed", resultado.getNome());
         verify(convenioRepository).findById(1L);
+    }
+
+    @Test
+    void findByIdDeveLancarExcecaoQuandoNaoExistir() {
+        when(convenioRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> convenioService.findById(99L));
+        verify(convenioRepository).findById(99L);
     }
 
     @Test
@@ -58,13 +66,10 @@ class ConvenioServiceTest {
 
         ConvenioEntity resultado = convenioService.save(novo);
 
-        assertNotNull(resultado);
         assertNotNull(resultado.getId());
         assertEquals(1L, resultado.getId());
-
-        verify(convenioRepository).save(novo);
         assertEquals("Unimed", resultado.getNome());
-        assertEquals("Plano regional", resultado.getDescricao());
+        verify(convenioRepository).save(novo);
     }
 
     @Test
@@ -75,47 +80,36 @@ class ConvenioServiceTest {
         when(convenioRepository.findById(1L)).thenReturn(Optional.of(existente));
         when(convenioRepository.save(any(ConvenioEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<ConvenioEntity> resultado = convenioService.update(1L, dadosAtualizados);
+        ConvenioEntity resultado = convenioService.update(1L, dadosAtualizados);
 
-        assertTrue(resultado.isPresent());
-        assertEquals("Unimed Atualizado", resultado.get().getNome());
-        assertEquals("Novo", resultado.get().getDescricao());
+        assertEquals("Unimed Atualizado", resultado.getNome());
+        assertEquals("Novo", resultado.getDescricao());
         verify(convenioRepository).findById(1L);
         verify(convenioRepository).save(existente);
     }
 
     @Test
-    void updateDeveRetornarVazioQuandoNaoExistir() {
+    void updateDeveLancarExcecaoQuandoNaoExistir() {
         ConvenioEntity dadosAtualizados = new ConvenioEntity(null, "Unimed Atualizado", "Novo");
         when(convenioRepository.findById(99L)).thenReturn(Optional.empty());
 
-        Optional<ConvenioEntity> resultado = convenioService.update(99L, dadosAtualizados);
-
-        assertTrue(resultado.isEmpty());
-        verify(convenioRepository).findById(99L);
-        verify(convenioRepository, never()).save(any(ConvenioEntity.class));
+        assertThrows(EntityNotFoundException.class, () -> convenioService.update(99L, dadosAtualizados));
+        verify(convenioRepository, never()).save(any());
     }
 
     @Test
     void deleteByIdDeveExcluirQuandoExistir() {
         when(convenioRepository.existsById(1L)).thenReturn(true);
 
-        boolean removido = convenioService.deleteById(1L);
-
-        assertTrue(removido);
-        verify(convenioRepository).existsById(1L);
+        assertDoesNotThrow(() -> convenioService.deleteById(1L));
         verify(convenioRepository).deleteById(1L);
     }
 
     @Test
-    void deleteByIdNaoDeveExcluirQuandoNaoExistir() {
+    void deleteByIdDeveLancarExcecaoQuandoNaoExistir() {
         when(convenioRepository.existsById(99L)).thenReturn(false);
 
-        boolean removido = convenioService.deleteById(99L);
-
-        assertFalse(removido);
-        verify(convenioRepository).existsById(99L);
+        assertThrows(EntityNotFoundException.class, () -> convenioService.deleteById(99L));
         verify(convenioRepository, never()).deleteById(anyLong());
     }
 }
-

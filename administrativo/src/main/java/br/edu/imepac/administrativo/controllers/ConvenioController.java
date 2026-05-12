@@ -2,8 +2,9 @@ package br.edu.imepac.administrativo.controllers;
 
 import br.edu.imepac.administrativo.dtos.ConvenioRequest;
 import br.edu.imepac.administrativo.dtos.ConvenioResponse;
-import br.edu.imepac.commons.entities.ConvenioEntity;
-import br.edu.imepac.commons.services.ConvenioService;
+import br.edu.imepac.administrativo.entities.ConvenioEntity;
+import br.edu.imepac.administrativo.services.ConvenioService;
+import br.edu.imepac.commons.dto.ApiResponse;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
@@ -25,44 +26,39 @@ public class ConvenioController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ConvenioResponse>> findAll() {
-        List<ConvenioResponse> response = convenioService.findAll()
+    public ResponseEntity<ApiResponse<List<ConvenioResponse>>> findAll() {
+        List<ConvenioResponse> list = convenioService.findAll()
                 .stream()
                 .map(entity -> modelMapper.map(entity, ConvenioResponse.class))
                 .toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ConvenioResponse> findById(@PathVariable Long id) {
-        return convenioService.findById(id)
-                .map(entity -> ResponseEntity.ok(modelMapper.map(entity, ConvenioResponse.class)))
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<ApiResponse<ConvenioResponse>> findById(@PathVariable Long id) {
+        ConvenioEntity entity = convenioService.findById(id);
+        return ResponseEntity.ok(ApiResponse.success(modelMapper.map(entity, ConvenioResponse.class)));
     }
 
     @PostMapping
-    public ResponseEntity<ConvenioResponse> create(@Valid @RequestBody ConvenioRequest request) {
+    public ResponseEntity<ApiResponse<ConvenioResponse>> create(@Valid @RequestBody ConvenioRequest request) {
         ConvenioEntity entity = modelMapper.map(request, ConvenioEntity.class);
         ConvenioEntity saved = convenioService.save(entity);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(modelMapper.map(saved, ConvenioResponse.class));
+                .body(ApiResponse.success(modelMapper.map(saved, ConvenioResponse.class)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ConvenioResponse> update(@PathVariable Long id,
-                                                   @Valid @RequestBody ConvenioRequest request) {
+    public ResponseEntity<ApiResponse<ConvenioResponse>> update(@PathVariable Long id,
+                                                               @Valid @RequestBody ConvenioRequest request) {
         ConvenioEntity entity = modelMapper.map(request, ConvenioEntity.class);
-        return convenioService.update(id, entity)
-                .map(updated -> ResponseEntity.ok(modelMapper.map(updated, ConvenioResponse.class)))
-                .orElse(ResponseEntity.notFound().build());
+        ConvenioEntity updated = convenioService.update(id, entity);
+        return ResponseEntity.ok(ApiResponse.success(modelMapper.map(updated, ConvenioResponse.class)));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (convenioService.deleteById(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+        convenioService.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }
-

@@ -10,6 +10,10 @@
     <spring-boot.version>3.3.5</spring-boot.version>
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
+    <jjwt.version>0.12.6</jjwt.version>
+    <springdoc.version>2.6.0</springdoc.version>
+    <logbook.version>3.9.0</logbook.version>
+    <testcontainers.version>1.20.4</testcontainers.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -38,6 +42,44 @@
         <artifactId>modelmapper</artifactId>
         <version>3.2.1</version>
       </dependency>
+      <!-- JJWT -->
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-api</artifactId>
+        <version>${jjwt.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-impl</artifactId>
+        <version>${jjwt.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-jackson</artifactId>
+        <version>${jjwt.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <!-- SpringDoc OpenAPI (Swagger UI) -->
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <!-- Logbook – HTTP request/response logging -->
+      <dependency>
+        <groupId>org.zalando</groupId>
+        <artifactId>logbook-spring-boot-starter</artifactId>
+        <version>${logbook.version}</version>
+      </dependency>
+      <!-- Testcontainers BOM -->
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <build>
@@ -55,6 +97,11 @@
           <configuration>
             <release>${maven.compiler.release}</release>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.3.1</version>
         </plugin>
       </plugins>
     </pluginManagement>

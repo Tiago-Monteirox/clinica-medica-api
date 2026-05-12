@@ -114,13 +114,13 @@ docker compose down -v
 
 ### Opção B — Local (IDE / terminal)
 
-Pré-requisito: ter um MySQL local (ou rodar só os bancos via `docker compose up mysql-administrativo mysql-agendamento mysql-atendimento`).
+Pré-requisito: MySQL rodando na porta `3307` (use `docker compose up -d mysql` para subir só o banco).
 
 ```bash
 # 1. Instalar commons no repositório local Maven
 mvn clean install -pl commons
 
-# 2. Em terminais separados:
+# 2. Em terminais separados (na ordem do roteiro):
 mvn spring-boot:run -pl administrativo
 mvn spring-boot:run -pl agendamento
 mvn spring-boot:run -pl atendimento
@@ -163,12 +163,32 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 
 ## Estado atual do código
 
-Já implementado:
+### Já implementado
 
-- `pom.xml` raiz com Java 17, Spring Boot 3.3.5, dependencyManagement (commons, MySQL, ModelMapper)
-- Módulo `commons` com a entidade `ConvenioEntity`, `ConvenioRepository`, `ConvenioService` e `ModelMapperConfig`
-- Módulo `administrativo` com CRUD completo de Convênio (`ConvenioController` + DTOs)
-- Módulos `agendamento` e `atendimento` com classe `Application` apenas
-- `docker-compose.yml` com um MySQL único
+**Infraestrutura**
+- `Dockerfile` multi-stage parametrizado (`ARG MODULE`) para todos os módulos
+- `docker-compose.yml` com MySQL 8.3 (healthcheck), serviço `administrativo` e demais comentados até implementação
+- `sql/init.sql` — cria as 3 bases e todas as tabelas com constraints e seed do usuário admin
+- `.dockerignore`, `.env.example`
 
-A ser feito (ver roteiro): refatorar `commons` em biblioteca técnica pura, mover Convênio para `administrativo`, criar Paciente e Médico, implementar Agendamento e Atendimento com Feign, adicionar Gateway, JWT, Swagger, Logbook, testes e CI.
+**`pom.xml` raiz**
+- Java 17, Spring Boot 3.3.5, `dependencyManagement` centralizado para commons, MySQL, ModelMapper, JJWT 0.12.6, SpringDoc 2.6, Logbook 3.9, Testcontainers 1.20.4
+- `maven-surefire-plugin` 3.x (JUnit 5)
+
+**Módulo `commons`** *(biblioteca técnica pura — PASSO 1 concluído)*
+- `ApiResponse<T>` — wrapper padrão para todas as respostas
+- `BusinessException`, `EntityNotFoundException`, `FeignIntegrationException`
+- `GlobalExceptionHandler` (`@RestControllerAdvice`) — mapeia exceções para HTTP com `ApiResponse`
+- `CommonsAutoConfiguration` + SPI (`AutoConfiguration.imports`) — beans registrados automaticamente em qualquer módulo que declare `commons` como dependência
+
+**Módulo `administrativo`** *(PASSO 2 concluído)*
+- CRUD completo de Convênio com `ApiResponse<T>` (`ConvenioController`, `ConvenioEntity`, `ConvenioService`, `ConvenioRepository`)
+- `application.yml` com variáveis de ambiente (`SERVER_PORT`, `SPRING_DATASOURCE_*`, `JWT_SECRET`, `JPA_SHOW_SQL`) e fallbacks para dev local
+- Dependências prontas: Spring Security, JJWT, SpringDoc (Swagger), Logbook, Actuator, Testcontainers
+- 8 testes unitários passando (`ConvenioServiceTest`)
+
+**Módulos `agendamento` e `atendimento`** — classe `Application` apenas
+
+### A ser feito
+
+Ver [`docs/02-ROTEIRO.md`](docs/02-ROTEIRO.md) — próximo passo: **PASSO 3** (Médico) e **PASSO 4** (Paciente).

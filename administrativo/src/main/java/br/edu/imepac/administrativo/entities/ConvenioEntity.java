@@ -1,4 +1,4 @@
-package br.edu.imepac.commons.entities;
+package br.edu.imepac.administrativo.entities;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -18,10 +18,9 @@ public class ConvenioEntity {
     private Long id;
 
     @NotBlank(message = "O nome do convênio é obrigatório")
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, unique = true, length = 150)
     private String nome;
 
     @Column(length = 500)
     private String descricao;
 }
-

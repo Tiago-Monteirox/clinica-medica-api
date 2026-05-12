@@ -1,5 +1,6 @@
-package br.edu.imepac.administrativo.dtos;
+package br.edu.imepac.administrativo.convenio.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,9 +8,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ConvenioResponse {
+public class ConvenioRequest {
 
-    private Long id;
+    @NotBlank(message = "O nome do convênio é obrigatório")
     private String nome;
     private String descricao;
 }

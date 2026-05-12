@@ -1,7 +1,8 @@
 package br.edu.imepac.administrativo.services;
 
-import br.edu.imepac.administrativo.entities.ConvenioEntity;
-import br.edu.imepac.administrativo.repositories.ConvenioRepository;
+import br.edu.imepac.administrativo.convenio.ConvenioEntity;
+import br.edu.imepac.administrativo.convenio.ConvenioRepository;
+import br.edu.imepac.administrativo.convenio.ConvenioService;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,8 +28,8 @@ class ConvenioServiceTest {
     @Test
     void findAllDeveRetornarListaDeConvenios() {
         List<ConvenioEntity> convenios = List.of(
-                new ConvenioEntity(1L, "Unimed", "Plano regional"),
-                new ConvenioEntity(2L, "Amil", "Plano nacional")
+                ConvenioEntity.builder().id(1L).nome("Unimed").descricao("Plano regional").build(),
+                ConvenioEntity.builder().id(2L).nome("Amil").descricao("Plano nacional").build()
         );
         when(convenioRepository.findAll()).thenReturn(convenios);
 
@@ -41,7 +42,7 @@ class ConvenioServiceTest {
 
     @Test
     void findByIdDeveRetornarConvenioQuandoExistir() {
-        ConvenioEntity convenio = new ConvenioEntity(1L, "Unimed", "Plano regional");
+        ConvenioEntity convenio = ConvenioEntity.builder().id(1L).nome("Unimed").descricao("Plano regional").build();
         when(convenioRepository.findById(1L)).thenReturn(Optional.of(convenio));
 
         ConvenioEntity resultado = convenioService.findById(1L);
@@ -60,8 +61,8 @@ class ConvenioServiceTest {
 
     @Test
     void saveDevePersistirConvenio() {
-        ConvenioEntity novo = new ConvenioEntity(null, "Unimed", "Plano regional");
-        ConvenioEntity salvo = new ConvenioEntity(1L, "Unimed", "Plano regional");
+        ConvenioEntity novo = ConvenioEntity.builder().nome("Unimed").descricao("Plano regional").build();
+        ConvenioEntity salvo = ConvenioEntity.builder().id(1L).nome("Unimed").descricao("Plano regional").build();
         when(convenioRepository.save(any(ConvenioEntity.class))).thenReturn(salvo);
 
         ConvenioEntity resultado = convenioService.save(novo);
@@ -74,8 +75,8 @@ class ConvenioServiceTest {
 
     @Test
     void updateDeveAtualizarConvenioQuandoExistir() {
-        ConvenioEntity existente = new ConvenioEntity(1L, "Unimed", "Antigo");
-        ConvenioEntity dadosAtualizados = new ConvenioEntity(null, "Unimed Atualizado", "Novo");
+        ConvenioEntity existente = ConvenioEntity.builder().id(1L).nome("Unimed").descricao("Antigo").build();
+        ConvenioEntity dadosAtualizados = ConvenioEntity.builder().nome("Unimed Atualizado").descricao("Novo").build();
 
         when(convenioRepository.findById(1L)).thenReturn(Optional.of(existente));
         when(convenioRepository.save(any(ConvenioEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -90,7 +91,7 @@ class ConvenioServiceTest {
 
     @Test
     void updateDeveLancarExcecaoQuandoNaoExistir() {
-        ConvenioEntity dadosAtualizados = new ConvenioEntity(null, "Unimed Atualizado", "Novo");
+        ConvenioEntity dadosAtualizados = ConvenioEntity.builder().nome("Unimed Atualizado").descricao("Novo").build();
         when(convenioRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> convenioService.update(99L, dadosAtualizados));

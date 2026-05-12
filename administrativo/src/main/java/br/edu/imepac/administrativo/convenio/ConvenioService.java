@@ -1,7 +1,5 @@
-package br.edu.imepac.administrativo.services;
+package br.edu.imepac.administrativo.convenio;
 
-import br.edu.imepac.administrativo.entities.ConvenioEntity;
-import br.edu.imepac.administrativo.repositories.ConvenioRepository;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 

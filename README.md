@@ -163,32 +163,52 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 
 ## Estado atual do código
 
-### Já implementado
+### Progresso dos PASSOs
+
+| PASSO | Descrição | Status |
+|---|---|---|
+| 0 | Diagnóstico inicial | ✅ |
+| 1 | `commons` refatorado em biblioteca técnica | ✅ |
+| 2 | `administrativo` — pom.xml + application.yml | ✅ |
+| 3 | Convênio (CRUD + ApiResponse) | ✅ |
+| 4 | Médico | 🔲 |
+| 5 | Paciente | 🔲 |
+| 6 | Auth + JWT | 🔲 |
+| 7 | Spring Security | 🔲 |
+| 8–15 | Agendamento, Atendimento, Gateway, Docker, Testes, CI/CD | 🔲 |
+
+---
+
+### O que já está implementado
 
 **Infraestrutura**
-- `Dockerfile` multi-stage parametrizado (`ARG MODULE`) para todos os módulos
-- `docker-compose.yml` com MySQL 8.3 (healthcheck), serviço `administrativo` e demais comentados até implementação
-- `sql/init.sql` — cria as 3 bases e todas as tabelas com constraints e seed do usuário admin
+- `Dockerfile` multi-stage parametrizado (`ARG MODULE`) — único arquivo para todos os módulos
+- `docker-compose.yml` com MySQL 8.3, healthcheck e rede isolada; agendamento/atendimento comentados até implementação
+- `sql/init.sql` — cria as 3 bases e todas as tabelas com constraints
 - `.dockerignore`, `.env.example`
 
 **`pom.xml` raiz**
-- Java 17, Spring Boot 3.3.5, `dependencyManagement` centralizado para commons, MySQL, ModelMapper, JJWT 0.12.6, SpringDoc 2.6, Logbook 3.9, Testcontainers 1.20.4
-- `maven-surefire-plugin` 3.x (JUnit 5)
+- Java 17, Spring Boot 3.3.5, versões centralizadas: JJWT 0.12.6, SpringDoc 2.6.0, Logbook 3.9.0, Testcontainers 1.20.4
+- `maven-surefire-plugin` 3.3.1 (suporte a JUnit 5)
 
-**Módulo `commons`** *(biblioteca técnica pura — PASSO 1 concluído)*
-- `ApiResponse<T>` — wrapper padrão para todas as respostas
-- `BusinessException`, `EntityNotFoundException`, `FeignIntegrationException`
-- `GlobalExceptionHandler` (`@RestControllerAdvice`) — mapeia exceções para HTTP com `ApiResponse`
-- `CommonsAutoConfiguration` + SPI (`AutoConfiguration.imports`) — beans registrados automaticamente em qualquer módulo que declare `commons` como dependência
+**Módulo `commons`** *(PASSO 1 — biblioteca técnica pura)*
+- `ApiResponse<T>` com `@JsonInclude(NON_NULL)` — wrapper padrão de todas as respostas
+- `BusinessException` (422), `EntityNotFoundException` (404), `FeignIntegrationException` (502)
+- `GlobalExceptionHandler` — captura exceções e retorna `ApiResponse` padronizado
+- `CommonsAutoConfiguration` + SPI — beans ativados automaticamente em qualquer módulo que declare `commons`
 
-**Módulo `administrativo`** *(PASSO 2 concluído)*
-- CRUD completo de Convênio com `ApiResponse<T>` (`ConvenioController`, `ConvenioEntity`, `ConvenioService`, `ConvenioRepository`)
-- `application.yml` com variáveis de ambiente (`SERVER_PORT`, `SPRING_DATASOURCE_*`, `JWT_SECRET`, `JPA_SHOW_SQL`) e fallbacks para dev local
-- Dependências prontas: Spring Security, JJWT, SpringDoc (Swagger), Logbook, Actuator, Testcontainers
-- 8 testes unitários passando (`ConvenioServiceTest`)
+**Módulo `administrativo`** *(PASSO 3 — Convênio completo)*
+- Package by feature: classes organizadas em `convenio/`, `shared/dto/`
+- CRUD completo de Convênio: `ConvenioEntity` (com `@Builder`, `createdAt`/`updatedAt`), `ConvenioRepository`, `ConvenioService` (lança exceções, nunca retorna Optional), `ConvenioController` (wrapping com `ApiResponse<T>`, Swagger `@Tag`/`@Operation`)
+- `application.yml` com variáveis de ambiente e fallbacks para dev local
+- Dependências: Spring Security, JJWT, SpringDoc, Logbook, Actuator, Testcontainers
+- 8 testes unitários passando (`ConvenioServiceTest` com builder pattern)
 
 **Módulos `agendamento` e `atendimento`** — classe `Application` apenas
 
+---
+
 ### A ser feito
 
-Ver [`docs/02-ROTEIRO.md`](docs/02-ROTEIRO.md) — próximo passo: **PASSO 3** (Médico) e **PASSO 4** (Paciente).
+Seguir o [`docs/02-ROTEIRO.md`](docs/02-ROTEIRO.md) a partir do **PASSO 4 (Médico)**.
+Cada PASSO tem code blocks completos prontos para copiar, validação com `curl` e ponto de controle.

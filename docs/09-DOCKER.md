@@ -64,12 +64,12 @@ raiz/
 O projeto usa **um único Dockerfile na raiz**, reutilizável para todos os módulos via `ARG MODULE`. Essa abordagem elimina duplicação e garante que todos os serviços usam as mesmas imagens base, flags JVM e processo de build.
 
 ```dockerfile
-FROM maven:3.9.9-eclipse-temurin-17 AS build
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 ```
 
 **Escolha da imagem de build:**
 - `maven:3.9.9` — versão pinada. Nunca use `latest` em builds CI/CD; quebraria de forma não determinística.
-- `eclipse-temurin-17` — distribuição Temurin da Eclipse Foundation (Adoptium). É a OpenJDK de referência para produção, substitui o AdoptOpenJDK.
+- `eclipse-temurin-21` — distribuição Temurin da Eclipse Foundation (Adoptium). É a OpenJDK de referência para produção, substitui o AdoptOpenJDK.
 - O stage chama-se `build` — usado na instrução `COPY --from=build` do stage seguinte.
 
 ---
@@ -132,7 +132,7 @@ O Maven resolve o grafo de dependências no `pom.xml` durante a fase de download
 ### Runtime stage
 
 ```dockerfile
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 ```
 
 **Alpine vs Debian:**
@@ -147,7 +147,7 @@ FROM eclipse-temurin:17-jre-alpine
 Para Spring Boot com MySQL connector, Alpine é totalmente suficiente. Problemas com musl vs glibc só surgem em bibliotecas nativas específicas (ex: algumas libs de criptografia de hardware). Para este projeto, não há restrições.
 
 **JRE, não JDK:**
-`17-jre-alpine` não tem `javac`, `jstack`, `jmap` etc. Reduz a superfície de ataque — se um atacante entrar no container, não encontra ferramentas de desenvolvimento.
+`21-jre-alpine` não tem `javac`, `jstack`, `jmap` etc. Reduz a superfície de ataque — se um atacante entrar no container, não encontra ferramentas de desenvolvimento.
 
 ---
 

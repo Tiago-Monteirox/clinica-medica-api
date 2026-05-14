@@ -1,5 +1,5 @@
 # ─── Build stage ───────────────────────────────────────────────────────────────
-FROM maven:3.9.9-eclipse-temurin-17 AS build
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /build
 
 # Copia apenas os pom.xml primeiro → camada de dependências em cache.
@@ -22,7 +22,7 @@ ARG MODULE=administrativo
 RUN mvn -pl ${MODULE} -am package -DskipTests -B
 
 # ─── Runtime stage ─────────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 ARG MODULE=administrativo
 WORKDIR /app
 

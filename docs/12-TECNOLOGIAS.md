@@ -58,7 +58,7 @@ mvn help:effective-pom -pl commons   # mostra o POM efetivo (após herança)
 
 ## 2. Spring Boot
 
-**Versão:** 3.3.5 (compatível com Java 21 neste projeto).
+**Versão:** 3.3.5 (compatível com Java 17+).
 
 **Papel:** framework que reduz boilerplate do Spring Framework via **convention over configuration** + auto-configuration.
 
@@ -478,7 +478,7 @@ spring:
     date-format: yyyy-MM-dd'T'HH:mm:ss
 ```
 
-**Java 21 records** funcionam direto, sem precisar de getters.
+**Java 17 records** funcionam direto, sem precisar de getters.
 
 ---
 

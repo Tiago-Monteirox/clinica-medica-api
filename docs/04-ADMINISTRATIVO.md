@@ -171,7 +171,7 @@ E no parent (`pom.xml` raiz), adicione:
 
 ```xml
 <properties>
-    <java.version>21</java.version>
+    <java.version>17</java.version>
     <spring-boot.version>3.3.5</spring-boot.version>
     <spring-cloud.version>2023.0.3</spring-cloud.version>
     <testcontainers.version>1.20.4</testcontainers.version>

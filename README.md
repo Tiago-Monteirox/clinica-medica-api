@@ -1,6 +1,6 @@
 # Clínica Médica — Sistema de Microsserviços
 
-Sistema de gestão de clínica médica construído com arquitetura de microsserviços. Java 21, Spring Boot 3.3, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose e pipeline em GitHub Actions.
+Sistema de gestão de clínica médica construído com arquitetura de microsserviços. Java 17, Spring Boot 3.3, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose e pipeline em GitHub Actions.
 
 > Projeto integrador da disciplina. Esta é a base oficial — substitui versões anteriores no Desktop.
 
@@ -54,7 +54,7 @@ Cada microsserviço tem **seu próprio banco** (database-per-service). A comunic
 
 | Categoria | Tecnologia | Versão |
 |---|---|---|
-| Linguagem | Java | 21 |
+| Linguagem | Java | 17 |
 | Framework | Spring Boot | 3.3.5 |
 | Microsserviços | Spring Cloud | 2023.0.x |
 | Persistência | Spring Data JPA + Hibernate | — |
@@ -77,7 +77,7 @@ Cada microsserviço tem **seu próprio banco** (database-per-service). A comunic
 
 | Ferramenta | Versão mínima |
 |---|---|
-| Java | 21 |
+| Java | 17 |
 | Maven | 3.9 |
 | Docker + Docker Compose | 24 / 2.x |
 
@@ -188,7 +188,7 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 - `.dockerignore`, `.env.example`
 
 **`pom.xml` raiz**
-- Java 21, Spring Boot 3.3.5, versões centralizadas: JJWT 0.12.6, SpringDoc 2.6.0, Logbook 3.9.0, Testcontainers 1.20.4
+- Java 17, Spring Boot 3.3.5, versões centralizadas: JJWT 0.12.6, SpringDoc 2.6.0, Logbook 3.9.0, Testcontainers 1.20.4
 - `maven-surefire-plugin` 3.3.1 (suporte a JUnit 5)
 
 **Módulo `commons`** *(PASSO 1 — biblioteca técnica pura)*

@@ -48,13 +48,13 @@ Se um passo não validar, o problema está nele — não no seguinte. Debugging 
 Antes de qualquer coisa, confirme:
 
 ```bash
-java -version        # deve mostrar Java 21.x.x
+java -version        # deve mostrar Java 17.x.x
 mvn -version         # deve mostrar Maven 3.9.x
 docker --version     # deve mostrar Docker 24+
 docker compose version  # deve mostrar Compose 2.x
 ```
 
-No IntelliJ: confirme que o SDK do projeto está configurado para Java 21 em `File → Project Structure → SDK`.
+No IntelliJ: confirme que o SDK do projeto está configurado para Java 17 em `File → Project Structure → SDK`.
 
 ---
 

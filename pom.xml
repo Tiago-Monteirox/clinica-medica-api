@@ -105,7 +105,59 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
+    <!-- Aplicar maven-compiler-plugin globalmente para que todos os módulos herdem a configuração
+         e compilem com o release definido em ${maven.compiler.release} (JDK 21). -->
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
+  <profiles>
+    <!-- Perfil que verifica a versão do JDK usada pelo Maven e falha se não for JDK 21.
+         Ativado por padrão para que CI e desenvolvedores falhem rapidamente quando
+         estiverem usando uma JDK diferente. -->
+    <profile>
+      <id>require-jdk-21</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <version>3.2.1</version>
+            <executions>
+              <execution>
+                <id>enforce-java-version</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireJavaVersion>
+                      <!-- aceita >=21 e <22 (ou troque conforme necessário) -->
+                      <version>[21,22)</version>
+                      <message>Este projeto requer JDK 21. Ajuste sua instalação/CI para usar JDK 21.</message>
+                    </requireJavaVersion>
+                  </rules>
+                  <fail>true</fail>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
   <modules>
     <module>administrativo</module>
     <module>atendimento</module>

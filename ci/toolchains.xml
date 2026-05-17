@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Exemplo de toolchains.xml para JDK 21.
+  Copie este arquivo para ~/.m2/toolchains.xml nos ambientes de desenvolvimento/CI
+  (por exemplo: $HOME/.m2/toolchains.xml) ou escreva este conteúdo no passo de build
+  do seu pipeline.
+
+  Substitua <jdkHome> pelo caminho real para sua instalação do JDK 21.
+  Exemplos:
+    - Linux/Mac: /usr/lib/jvm/temurin-21
+    - Windows:   C:\\Program Files\\Java\\jdk-21
+-->
+<toolchains>
+  <toolchain>
+    <type>jdk</type>
+    <provides>
+      <version>21</version>
+      <vendor>temurin</vendor>
+    </provides>
+    <configuration>
+      <jdkHome>/path/to/jdk-21</jdkHome>
+    </configuration>
+  </toolchain>
+</toolchains>
+

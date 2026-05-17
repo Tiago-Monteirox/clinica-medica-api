@@ -56,9 +56,9 @@ services:
   #   container_name: clinica-agendamento
   #   restart: unless-stopped
   #   ports:
-  #     - "8082:8082"
+  #     - "8081:8081"
   #   environment:
-  #     SERVER_PORT: 8082
+  #     SERVER_PORT: 8081
   #     SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/clinica_agendamento?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
   #     SPRING_DATASOURCE_USERNAME: root
   #     SPRING_DATASOURCE_PASSWORD: ""
@@ -86,7 +86,7 @@ services:
   #     SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/clinica_atendimento?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
   #     SPRING_DATASOURCE_USERNAME: root
   #     SPRING_DATASOURCE_PASSWORD: ""
-  #     AGENDAMENTO_URL: http://clinica-agendamento:8082
+  #     AGENDAMENTO_URL: http://clinica-agendamento:8081
   #     JWT_SECRET: ${JWT_SECRET:-dev-secret-please-change-in-production-with-256-bits-minimum}
   #   depends_on:
   #     mysql:

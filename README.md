@@ -1,52 +1,50 @@
 # Clínica Médica — Sistema de Microsserviços
 
-Sistema de gestão de clínica médica construído com arquitetura de microsserviços. Java 21, Spring Boot 3.3, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose e pipeline em GitHub Actions.
-
-> Projeto integrador da disciplina. Esta é a base oficial — substitui versões anteriores no Desktop.
+Sistema de gestão de clínica médica em arquitetura de microsserviços. Java 21, Spring Boot 3.3, Spring Cloud Gateway, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose.
 
 ---
 
 ## Arquitetura
 
 ```
-                            ┌─────────────────────┐
-                            │   Cliente / Front   │
-                            └──────────┬──────────┘
-                                       │
-                                       ▼
-                          ┌────────────────────────┐
-                          │   API Gateway (8080)   │
-                          │  Spring Cloud Gateway  │
-                          │   + Filtro JWT         │
-                          └─┬──────────┬──────────┬┘
-                            │          │          │
-        ┌───────────────────┘          │          └────────────────────┐
-        ▼                              ▼                               ▼
-┌────────────────┐            ┌────────────────┐             ┌────────────────┐
-│ administrativo │◄───Feign───┤  agendamento   │◄────Feign───┤  atendimento   │
-│     (8081)     │            │     (8082)     │             │     (8083)     │
-└────────┬───────┘            └────────┬───────┘             └────────┬───────┘
-         │                             │                              │
-         ▼                             ▼                              ▼
-   ┌──────────┐                  ┌──────────┐                   ┌──────────┐
-   │  MySQL   │                  │  MySQL   │                   │  MySQL   │
-   │  (3307)  │                  │  (3308)  │                   │  (3309)  │
-   └──────────┘                  └──────────┘                   └──────────┘
+                         ┌──────────────────────────┐
+                         │     Cliente / Front      │
+                         └────────────┬─────────────┘
+                                      ▼
+                       ┌────────────────────────────┐
+                       │   API Gateway (8080)       │
+                       │   Spring Cloud Gateway     │
+                       │   + Filtro JWT (WebFlux)   │
+                       └─┬──────────┬──────────┬───┘
+                         │          │          │
+       ┌─────────────────┘          │          └────────────────┐
+       ▼                            ▼                           ▼
+┌────────────────┐          ┌────────────────┐          ┌────────────────┐
+│ administrativo │◄──Feign──│  agendamento   │◄──Feign──│  atendimento   │
+│     (8081)     │          │     (8082)     │          │     (8083)     │
+└────────┬───────┘          └────────┬───────┘          └────────┬───────┘
+         │                           │                           │
+         └─────────── MySQL 8.3 (clinica-mysql:3307) ─────────────┘
+                     ├─ clinica_administrativo
+                     ├─ clinica_agendamento
+                     └─ clinica_atendimento
 ```
 
-Cada microsserviço tem **seu próprio banco** (database-per-service). A comunicação é feita exclusivamente via HTTP/REST com **OpenFeign** declarativo. O Gateway é a única porta de entrada e centraliza autenticação JWT.
+Cada microsserviço tem **sua própria base lógica** dentro de uma instância MySQL compartilhada (database-per-service, didático). A comunicação entre serviços é feita exclusivamente via HTTP/REST com **OpenFeign** declarativo + `ErrorDecoder` que traduz HTTP em exceções de negócio. O Gateway é a única porta pública e centraliza autenticação JWT.
+
+> **Nota de porta:** o gateway escuta `8080` dentro do container, publicado como **`8084`** no host (`docker-compose.yml`) para não conflitar com aplicações locais. Em ambiente limpo basta trocar para `8080:8080`.
 
 ---
 
 ## Módulos
 
-| Módulo | Porta | Responsabilidade |
+| Módulo | Porta (host) | Responsabilidade |
 |---|---|---|
-| `commons` | — | Biblioteca técnica compartilhada: `ApiResponse<T>`, `GlobalExceptionHandler`, exceções base, DTOs de contrato, auto-configuration |
-| `administrativo` | **8081** | CRUD de Convênio, Paciente e Médico. Fonte de verdade para validações vindas dos outros serviços |
-| `agendamento` | **8082** | CRUD de Agendamento. Valida paciente/médico via Feign no `administrativo` |
-| `atendimento` | **8083** | CRUD de Atendimento. Registra diagnóstico/prescrição. Valida agendamento via Feign |
-| `gateway` | **8080** | Roteamento + filtro JWT. Spring Cloud Gateway |
+| `commons` | — | Biblioteca técnica: `ApiResponse<T>`, `GlobalExceptionHandler`, exceções base, `CommonsAutoConfiguration` (SPI) |
+| `administrativo` | **8081** | CRUD de Convênio, Paciente, Médico. Auth + JWT + Spring Security. Fonte de verdade para `/exists` consumidos via Feign |
+| `agendamento` | **8082** | CRUD de Agendamento. Valida paciente/médico via Feign no administrativo |
+| `atendimento` | **8083** | Registro clínico (diagnóstico + prescrição). Valida agendamento via Feign |
+| `gateway` | **8084** → 8080 | Roteamento + filtro JWT centralizado |
 
 ---
 
@@ -56,20 +54,20 @@ Cada microsserviço tem **seu próprio banco** (database-per-service). A comunic
 |---|---|---|
 | Linguagem | Java | 21 |
 | Framework | Spring Boot | 3.3.5 |
-| Microsserviços | Spring Cloud | 2023.0.x |
-| Persistência | Spring Data JPA + Hibernate | — |
-| Banco | MySQL | 8 |
+| Microsserviços | Spring Cloud | 2023.0.3 |
+| Persistência | Spring Data JPA + Hibernate | 6.5 |
+| Banco | MySQL | 8.3 |
 | Comunicação | OpenFeign | Spring Cloud |
-| Documentação | SpringDoc OpenAPI (Swagger UI) | 2.x |
-| Logging HTTP | Logbook (Zalando) | 3.x |
-| Mapeamento | ModelMapper | 3.2.x |
+| Gateway | Spring Cloud Gateway (WebFlux) | 4.x |
+| Documentação | SpringDoc OpenAPI (Swagger UI) | 2.6 |
+| Logging HTTP | Logbook (Zalando) | 3.9 |
+| Mapeamento | ModelMapper | 3.2 |
 | Validação | Bean Validation (Jakarta) | — |
-| Segurança | Spring Security + JJWT | 6.x / 0.12.x |
-| Testes (unit) | JUnit 5 + Mockito + AssertJ | — |
-| Testes (integração) | Testcontainers + MockMvc | — |
+| Segurança | Spring Security + JJWT | 6.x / 0.12.6 |
+| Testes (unit) | JUnit 5 + Mockito | — |
+| Testes (integração) | Testcontainers | 1.20 |
 | Build | Maven multi-módulo | 3.9 |
 | Container | Docker + Docker Compose | — |
-| CI/CD | GitHub Actions | — |
 
 ---
 
@@ -87,40 +85,37 @@ Cada microsserviço tem **seu próprio banco** (database-per-service). A comunic
 
 ### Opção A — Docker Compose (recomendado)
 
-Sobe os 3 MySQLs, os 3 microsserviços e o gateway de uma vez.
-
 ```bash
-# 1. Gerar os JARs
-mvn clean package -DskipTests
+# Sobe MySQL + administrativo + agendamento + atendimento + gateway
+docker compose up --build -d
 
-# 2. Subir toda a stack
-docker compose up --build
+# Acompanhar logs
+docker compose logs -f
+
+# Derrubar (mantém volumes)
+docker compose down
+
+# Derrubar e apagar dados
+docker compose down -v
 ```
 
-Endpoints disponíveis após o boot:
+Endpoints após o boot:
 
-- API Gateway: `http://localhost:8080`
+- **Gateway**: `http://localhost:8084` (entrada única — login + roteamento)
 - Swagger administrativo: `http://localhost:8081/swagger-ui.html`
 - Swagger agendamento: `http://localhost:8082/swagger-ui.html`
 - Swagger atendimento: `http://localhost:8083/swagger-ui.html`
 
-```bash
-# Derrubar tudo (mantém volumes)
-docker compose down
-
-# Derrubar e apagar dados dos bancos
-docker compose down -v
-```
-
 ### Opção B — Local (IDE / terminal)
 
-Pré-requisito: MySQL rodando na porta `3307` (use `docker compose up -d mysql` para subir só o banco).
-
 ```bash
-# 1. Instalar commons no repositório local Maven
-mvn clean install -pl commons
+# 1. Subir só o MySQL
+docker compose up -d mysql
 
-# 2. Em terminais separados (na ordem do roteiro):
+# 2. Instalar commons (necessário só na primeira vez)
+mvn clean install -pl commons -am
+
+# 3. Em terminais separados
 mvn spring-boot:run -pl administrativo
 mvn spring-boot:run -pl agendamento
 mvn spring-boot:run -pl atendimento
@@ -129,86 +124,126 @@ mvn spring-boot:run -pl gateway
 
 ---
 
-## Documentação
+## Smoke test (fluxo completo via Gateway)
 
-A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
+```bash
+# 1. Login
+TOKEN=$(curl -s -X POST http://localhost:8084/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@clinica.com","senha":"admin123"}' | jq -r '.data.token')
+
+# 2. Criar dados mestres
+curl -s -X POST http://localhost:8084/api/admin/v1/convenios \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"nome":"Unimed","descricao":"Plano Ouro"}'
+
+curl -s -X POST http://localhost:8084/api/admin/v1/medicos \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"nome":"Dra. Ana","email":"ana@clinica.com","crm":"CRM/SP 99","especialidade":"Cardiologia"}'
+
+curl -s -X POST http://localhost:8084/api/admin/v1/pacientes \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"nome":"João Silva","email":"joao@email.com","cpf":"12345678901","convenioId":1}'
+
+# 3. Criar agendamento (cruza serviços via Feign)
+curl -s -X POST http://localhost:8084/api/agendamentos/v1/agendamentos \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"pacienteId":1,"medicoId":1,"dataHora":"2030-06-15T14:00:00"}'
+
+# 4. Registrar atendimento
+curl -s -X POST http://localhost:8084/api/atendimentos/v1/atendimentos \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"agendamentoId":1,"diagnostico":"Hipertensão","prescricao":"Losartana 50mg"}'
+```
+
+Credenciais iniciais (seed do `administrativo`): `admin@clinica.com` / `admin123`.
+
+---
+
+## Roles & autorização
+
+Mapa de atores aplicado via `@PreAuthorize` nos controllers:
+
+| Recurso | GET | POST/PUT | DELETE |
+|---|---|---|---|
+| `/v1/convenios` | ADMIN, RECEPCIONISTA, MEDICO | ADMIN | ADMIN |
+| `/v1/medicos` | ADMIN, RECEPCIONISTA, MEDICO | ADMIN | ADMIN |
+| `/v1/pacientes` | ADMIN, RECEPCIONISTA, MEDICO | ADMIN, RECEPCIONISTA | ADMIN |
+| `/v1/agendamentos` (POST/PUT) | — | ADMIN, RECEPCIONISTA | — |
+| `/v1/agendamentos/{id}` (GET) | ADMIN, RECEPCIONISTA, MEDICO, PACIENTE | — | ADMIN, RECEPCIONISTA, PACIENTE |
+| `/v1/atendimentos` (POST/PUT) | — | ADMIN, MEDICO | — |
+| `/v1/atendimentos` (DELETE) | — | — | ADMIN |
+| `/auth/register` | — | ADMIN | — |
+
+Endpoints **públicos** (sem JWT): `/auth/login`, `/v1/medicos/{id}/exists`, `/v1/pacientes/{id}/exists` (Feign interno), `/actuator/health`, `/v3/api-docs/**`, `/swagger-ui/**`.
+
+---
+
+## Testes
+
+```bash
+# Todos os módulos
+mvn test
+
+# Módulo específico
+mvn test -pl administrativo
+```
+
+Estado atual: **29 testes unitários verdes** distribuídos em ConvenioServiceTest (8), MedicoServiceTest (5), PacienteServiceTest (5), AgendamentoServiceTest (6), AtendimentoServiceTest (5).
+
+---
+
+## Documentação
 
 | # | Documento | Descrição |
 |---|---|---|
 | 00 | [Visão Geral](docs/00-VISAO-GERAL.md) | Domínio, atores, escopo MVP, decisões de produto |
 | 01 | [Arquitetura](docs/01-ARQUITETURA.md) | Diagrama, comunicação, fluxo de uma requisição |
-| 02 | [Roteiro de Implementação](docs/02-ROTEIRO.md) | **Comece por aqui.** Passo-a-passo em fases (0 a 7) |
-| 03 | [Módulo `commons`](docs/03-COMMONS.md) | Refatoração para biblioteca técnica |
-| 04 | [Serviço `administrativo`](docs/04-ADMINISTRATIVO.md) | Convênio, Paciente, Médico |
-| 05 | [Serviço `agendamento`](docs/05-AGENDAMENTO.md) | Agendamento + Feign para administrativo |
+| 02 | [Roteiro de Implementação](docs/02-ROTEIRO.md) | Passo a passo (PASSOs 0 → 15) |
+| 03 | [Módulo `commons`](docs/03-COMMONS.md) | Biblioteca técnica compartilhada |
+| 04 | [Serviço `administrativo`](docs/04-ADMINISTRATIVO.md) | Convênio, Paciente, Médico, Auth |
+| 05 | [Serviço `agendamento`](docs/05-AGENDAMENTO.md) | Agendamento + Feign |
 | 06 | [Serviço `atendimento`](docs/06-ATENDIMENTO.md) | Atendimento + diagnóstico + prescrição |
 | 07 | [API Gateway](docs/07-GATEWAY.md) | Spring Cloud Gateway, rotas |
-| 08 | [Segurança (JWT)](docs/08-SEGURANCA.md) | Autenticação, autorização por role |
+| 08 | [Segurança (JWT)](docs/08-SEGURANCA.md) | Autenticação e autorização |
 | 09 | [Docker](docs/09-DOCKER.md) | Dockerfile multi-stage, docker-compose |
-| 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Pipeline de build, test e deploy |
-| 11 | [Testes](docs/11-TESTES.md) | JUnit, Mockito, Testcontainers, MockMvc |
-| 12 | [Referência de Tecnologias](docs/12-TECNOLOGIAS.md) | Aprofundamento técnico de cada peça |
-
-Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
-
----
-
-## Fluxo recomendado para o aluno
-
-1. Ler [`docs/00-VISAO-GERAL.md`](docs/00-VISAO-GERAL.md) e [`docs/01-ARQUITETURA.md`](docs/01-ARQUITETURA.md) (≈30 min).
-2. Seguir o [`docs/02-ROTEIRO.md`](docs/02-ROTEIRO.md) fase por fase, consultando o doc específico de cada módulo conforme aparece.
-3. Usar [`docs/12-TECNOLOGIAS.md`](docs/12-TECNOLOGIAS.md) como referência sempre que aparecer uma dependência ou anotação que não conhece.
+| 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Pipeline (pendente — ver PASSO 15) |
+| 11 | [Testes](docs/11-TESTES.md) | JUnit, Mockito, Testcontainers |
+| 12 | [Referência de Tecnologias](docs/12-TECNOLOGIAS.md) | Aprofundamento técnico |
+| 14 | [Kubernetes — Ambientes](docs/14-KUBERNETES-AMBIENTES.md) | Estratégia de ambientes em K8s |
+| 15 | [Kubernetes — Guia de Implementação](docs/15-KUBERNETES-GUIA-IMPLEMENTACAO.md) | Manifests + steps |
+| 16 | [Frontend — Esboço](docs/16-FRONTEND.md) | SPA React + Vite + shadcn (input para o design) |
+| — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–14 concluídos. Validações executadas. Pendências.** |
 
 ---
 
-## Estado atual do código
+## Estado atual
 
-### Progresso dos PASSOs
-
-| PASSO | Descrição | Status |
+| PASSO | Tema | Status |
 |---|---|---|
 | 0 | Diagnóstico inicial | ✅ |
-| 1 | `commons` refatorado em biblioteca técnica | ✅ |
-| 2 | `administrativo` — pom.xml + application.yml | ✅ |
-| 3 | Convênio (CRUD + ApiResponse) | ✅ |
-| 4 | Médico | 🔲 |
-| 5 | Paciente | 🔲 |
-| 6 | Auth + JWT | 🔲 |
-| 7 | Spring Security | 🔲 |
-| 8–15 | Agendamento, Atendimento, Gateway, Docker, Testes, CI/CD | 🔲 |
+| 1 | `commons` em biblioteca técnica (auto-configuration) | ✅ |
+| 2 | `administrativo` — pom + application.yml | ✅ |
+| 3 | Convênio | ✅ |
+| 4 | Médico | ✅ |
+| 5 | Paciente (FK opcional para Convênio) | ✅ |
+| 6 | Auth + emissão JWT | ✅ |
+| 7 | Spring Security + `@PreAuthorize` em todos os controllers | ✅ |
+| 8 | Checkpoint administrativo ponta a ponta | ✅ |
+| 9 | `administrativo` em container Docker | ✅ |
+| 10 | `agendamento` + Feign + ErrorDecoder | ✅ |
+| 11 | `atendimento` + Feign + denormalização | ✅ |
+| 12 | API Gateway (Spring Cloud Gateway, WebFlux) | ✅ |
+| 13 | Stack Docker completa (5 containers) | ✅ |
+| 14 | Testes unitários (29 verdes) | ✅ |
+| 15 | CI/CD + polimento (JaCoCo, GitHub Actions, badges) | ⏳ |
+
+Detalhes, decisões técnicas, desvios em relação ao roteiro e validações executadas em [`docs/CHECKPOINT.md`](docs/CHECKPOINT.md).
 
 ---
 
-### O que já está implementado
+## Próximos passos
 
-**Infraestrutura**
-- `Dockerfile` multi-stage parametrizado (`ARG MODULE`) — único arquivo para todos os módulos
-- `docker-compose.yml` com MySQL 8.3, healthcheck e rede isolada; agendamento/atendimento comentados até implementação
-- `sql/init.sql` — cria as 3 bases e todas as tabelas com constraints
-- `.dockerignore`, `.env.example`
-
-**`pom.xml` raiz**
-- Java 21, Spring Boot 3.3.5, versões centralizadas: JJWT 0.12.6, SpringDoc 2.6.0, Logbook 3.9.0, Testcontainers 1.20.4
-- `maven-surefire-plugin` 3.3.1 (suporte a JUnit 5)
-
-**Módulo `commons`** *(PASSO 1 — biblioteca técnica pura)*
-- `ApiResponse<T>` com `@JsonInclude(NON_NULL)` — wrapper padrão de todas as respostas
-- `BusinessException` (422), `EntityNotFoundException` (404), `FeignIntegrationException` (502)
-- `GlobalExceptionHandler` — captura exceções e retorna `ApiResponse` padronizado
-- `CommonsAutoConfiguration` + SPI — beans ativados automaticamente em qualquer módulo que declare `commons`
-
-**Módulo `administrativo`** *(PASSO 3 — Convênio completo)*
-- Package by feature: classes organizadas em `convenio/`, `shared/dto/`
-- CRUD completo de Convênio: `ConvenioEntity` (com `@Builder`, `createdAt`/`updatedAt`), `ConvenioRepository`, `ConvenioService` (lança exceções, nunca retorna Optional), `ConvenioController` (wrapping com `ApiResponse<T>`, Swagger `@Tag`/`@Operation`)
-- `application.yml` com variáveis de ambiente e fallbacks para dev local
-- Dependências: Spring Security, JJWT, SpringDoc, Logbook, Actuator, Testcontainers
-- 8 testes unitários passando (`ConvenioServiceTest` com builder pattern)
-
-**Módulos `agendamento` e `atendimento`** — classe `Application` apenas
-
----
-
-### A ser feito
-
-Seguir o [`docs/02-ROTEIRO.md`](docs/02-ROTEIRO.md) a partir do **PASSO 4 (Médico)**.
-Cada PASSO tem code blocks completos prontos para copiar, validação com `curl` e ponto de controle.
+1. **PASSO 15 — CI/CD e polimento**: `.github/workflows/ci.yml` (build + test em PR/push), `docker.yml` (push para GHCR), JaCoCo para cobertura, badges no README.
+2. **Frontend**: SPA React + Vite consumindo o gateway (`docs/16-FRONTEND.md`). Esboço pronto para entrar no design.
+3. **Kubernetes**: deploy em K8s seguindo `docs/14-KUBERNETES-AMBIENTES.md` e `docs/15-KUBERNETES-GUIA-IMPLEMENTACAO.md`.

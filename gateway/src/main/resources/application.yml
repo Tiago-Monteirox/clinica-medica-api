@@ -1,0 +1,50 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        - id: auth
+          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+          predicates:
+            - Path=/auth/**
+
+        - id: administrativo
+          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - StripPrefix=2
+
+        - id: agendamento
+          uri: ${AGENDAMENTO_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/agendamentos/**
+          filters:
+            - StripPrefix=2
+
+        - id: atendimento
+          uri: ${ATENDIMENTO_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/atendimentos/**
+          filters:
+            - StripPrefix=2
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+jwt:
+  secret: ${JWT_SECRET:dev-secret-please-change-in-production-with-256-bits-minimum}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized

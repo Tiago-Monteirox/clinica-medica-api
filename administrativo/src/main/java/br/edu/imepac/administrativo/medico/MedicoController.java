@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public class MedicoController {
     }
 
     @Operation(summary = "Listar todos os médicos")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<MedicoResponse>>> findAll() {
         List<MedicoResponse> list = medicoService.findAll()
@@ -38,6 +40,7 @@ public class MedicoController {
     }
 
     @Operation(summary = "Buscar médico por ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<MedicoResponse>> findById(@PathVariable Long id) {
         MedicoResponse response = modelMapper.map(medicoService.findById(id), MedicoResponse.class);
@@ -51,6 +54,7 @@ public class MedicoController {
     }
 
     @Operation(summary = "Criar novo médico")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ApiResponse<MedicoResponse>> create(@Valid @RequestBody MedicoRequest request) {
         MedicoEntity entity = modelMapper.map(request, MedicoEntity.class);
@@ -59,6 +63,7 @@ public class MedicoController {
     }
 
     @Operation(summary = "Atualizar médico")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<MedicoResponse>> update(@PathVariable Long id,
                                                               @Valid @RequestBody MedicoRequest request) {
@@ -68,6 +73,7 @@ public class MedicoController {
     }
 
     @Operation(summary = "Excluir médico")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         medicoService.deleteById(id);

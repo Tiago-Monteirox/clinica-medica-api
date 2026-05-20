@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public class PacienteController {
     }
 
     @Operation(summary = "Listar todos os pacientes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<PacienteResponse>>> findAll() {
         List<PacienteResponse> list = pacienteService.findAll()
@@ -38,6 +40,7 @@ public class PacienteController {
     }
 
     @Operation(summary = "Buscar paciente por ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PacienteResponse>> findById(@PathVariable Long id) {
         PacienteResponse response = modelMapper.map(pacienteService.findById(id), PacienteResponse.class);
@@ -51,6 +54,7 @@ public class PacienteController {
     }
 
     @Operation(summary = "Criar novo paciente")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA')")
     @PostMapping
     public ResponseEntity<ApiResponse<PacienteResponse>> create(@Valid @RequestBody PacienteRequest request) {
         PacienteEntity entity = modelMapper.map(request, PacienteEntity.class);
@@ -61,6 +65,7 @@ public class PacienteController {
     }
 
     @Operation(summary = "Atualizar paciente")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<PacienteResponse>> update(@PathVariable Long id,
                                                                 @Valid @RequestBody PacienteRequest request) {
@@ -70,6 +75,7 @@ public class PacienteController {
     }
 
     @Operation(summary = "Excluir paciente")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         pacienteService.deleteById(id);

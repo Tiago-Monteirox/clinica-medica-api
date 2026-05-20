@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +28,7 @@ public class ConvenioController {
     }
 
     @Operation(summary = "Listar todos os convênios")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ConvenioResponse>>> findAll() {
         List<ConvenioResponse> list = convenioService.findAll()
@@ -37,6 +39,7 @@ public class ConvenioController {
     }
 
     @Operation(summary = "Buscar convênio por ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA', 'MEDICO')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ConvenioResponse>> findById(@PathVariable Long id) {
         ConvenioResponse response = modelMapper.map(convenioService.findById(id), ConvenioResponse.class);
@@ -44,6 +47,7 @@ public class ConvenioController {
     }
 
     @Operation(summary = "Criar novo convênio")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ApiResponse<ConvenioResponse>> create(@Valid @RequestBody ConvenioRequest request) {
         ConvenioEntity entity = modelMapper.map(request, ConvenioEntity.class);
@@ -52,6 +56,7 @@ public class ConvenioController {
     }
 
     @Operation(summary = "Atualizar convênio")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ConvenioResponse>> update(@PathVariable Long id,
                                                                @Valid @RequestBody ConvenioRequest request) {
@@ -61,6 +66,7 @@ public class ConvenioController {
     }
 
     @Operation(summary = "Excluir convênio")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         convenioService.deleteById(id);

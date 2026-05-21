@@ -1,0 +1,65 @@
+@startuml ArquiteturaHomologation
+
+title Clínica Médica — Arquitetura HOMOLOGATION (estado atual)\n1 MySQL com 3 databases lógicos
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+
+package "Cliente" {
+    [Postman / curl / Frontend (Vite :5173)] as cliente
+}
+
+package "API Gateway" {
+    component "gateway\nSpring Cloud Gateway\nhost :8084 → container :8080\n+ Filtro JWT (WebFlux)" as gw
+}
+
+package "Microsserviços (Spring Boot 3.3.5)" {
+    component "administrativo :8081\nConvenio · Paciente · Medico\nAuth (login/register)\nUsuario + JWT" as adm
+    component "agendamento :8082\nAgendamento\n+ JwtAuthFilter (servlet)" as ag
+    component "atendimento :8083\nAtendimento\n+ JwtAuthFilter (servlet)" as at
+}
+
+package "Persistência (host :3307)" {
+    database "MySQL 8.3 — instância única" as mysql {
+        frame "clinica_administrativo\n(convenios, pacientes, medicos, usuarios)" as schema_adm
+        frame "clinica_agendamento\n(agendamentos)" as schema_ag
+        frame "clinica_atendimento\n(atendimentos)" as schema_at
+    }
+}
+
+cliente --> gw : HTTPS / HTTP\nAuthorization: Bearer <jwt>
+
+gw --> adm : /api/admin/**\n/auth/**\n(StripPrefix=2)
+gw --> ag  : /api/agendamentos/**\n(StripPrefix=2)
+gw --> at  : /api/atendimentos/**\n(StripPrefix=2)
+
+ag ..> adm : Feign\nGET /v1/pacientes/{id}/exists\nGET /v1/medicos/{id}/exists\n(propaga Bearer)
+at ..> ag  : Feign\nGET /v1/agendamentos/{id}\n(propaga Bearer)
+
+adm --> schema_adm
+ag  --> schema_ag
+at  --> schema_at
+
+note right of gw
+  Única porta de entrada.
+  Valida JWT e propaga
+  X-User-Email / X-User-Role
+  para os serviços.
+end note
+
+note bottom of mysql
+  HOMOLOGATION:
+  isolamento LÓGICO (3 schemas no mesmo MySQL).
+  Em PRODUCTION, cada serviço fala com
+  seu próprio banco externo (ver arquitetura-production.puml).
+end note
+
+note left of adm
+  Fonte de verdade para
+  cadastros mestres.
+  Emissor do JWT.
+end note
+
+@enduml

@@ -1,0 +1,68 @@
+@startuml ArquiteturaProduction
+
+title Clínica Médica — Arquitetura PRODUCTION (alvo)\nDatabase-per-service real (3 bancos externos)
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+
+package "Cliente" {
+    [Frontend SPA / API Consumers] as cliente
+}
+
+cloud "Internet" as internet
+
+package "Edge" {
+    component "gateway :8080\nSpring Cloud Gateway\n+ Filtro JWT (WebFlux)\n(replicado)" as gw
+}
+
+package "Microsserviços (containers)" {
+    component "administrativo\nReplicas: N\nConvenio · Paciente · Medico\nAuth (login/register)" as adm
+    component "agendamento\nReplicas: N\nAgendamento" as ag
+    component "atendimento\nReplicas: N\nAtendimento" as at
+}
+
+cloud "DBaaS / instâncias\ngerenciadas" as dbcloud {
+    database "DB administrativo\n(host + creds próprios)" as db_adm
+    database "DB agendamento\n(host + creds próprios)" as db_ag
+    database "DB atendimento\n(host + creds próprios)" as db_at
+}
+
+cliente --> internet
+internet --> gw : HTTPS\nAuthorization: Bearer <jwt>
+
+gw --> adm : /api/admin/**\n/auth/**
+gw --> ag  : /api/agendamentos/**
+gw --> at  : /api/atendimentos/**
+
+ag ..> adm : Feign\nGET /v1/pacientes/{id}/exists\nGET /v1/medicos/{id}/exists
+at ..> ag  : Feign\nGET /v1/agendamentos/{id}
+
+adm --> db_adm : usuário/senha\nexclusivos
+ag  --> db_ag  : usuário/senha\nexclusivos
+at  --> db_at  : usuário/senha\nexclusivos
+
+note right of gw
+  Única porta externa.
+  TLS terminado aqui ou
+  em load balancer à frente.
+  JWT_SECRET vem de secret manager.
+end note
+
+note bottom of dbcloud
+  PRODUCTION:
+  isolamento FÍSICO — cada serviço
+  só conhece o JDBC do próprio banco.
+  Backup, escala e ciclo de manutenção
+  por serviço.
+end note
+
+note left of adm
+  Cada serviço:
+  - imagem própria
+  - secrets próprios (JDBC, DB user/pass)
+  - escala horizontal independente
+end note
+
+@enduml

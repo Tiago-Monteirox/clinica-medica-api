@@ -1,6 +1,6 @@
 # Checkpoint — clínica-médica-api
 
-> Última atualização: 2026-05-19. Snapshot do progresso após concluir do **PASSO 0 ao 14** do `02-ROTEIRO.md`. Inclui as decisões técnicas tomadas, desvios em relação ao roteiro original, validações executadas e o estado atual do stack.
+> Última atualização: 2026-05-21. Snapshot do progresso após concluir do **PASSO 0 ao 14** do `02-ROTEIRO.md` e redefinir o **PASSO 15** para conteinerização por ambiente + CI/CD com GitHub Actions. Inclui as decisões técnicas tomadas, desvios em relação ao roteiro original, validações executadas (inclusive Swagger) e o estado atual da stack.
 
 ---
 
@@ -23,7 +23,7 @@
 | 12 | API Gateway (Spring Cloud Gateway, WebFlux) | OK |
 | 13 | Stack Docker completa (5 containers) | OK |
 | 14 | Testes unitários (29 testes verdes) | OK |
-| 15 | CI/CD e polimento | PENDENTE |
+| 15 | Conteinerização por ambiente + CI/CD com GitHub Actions | PENDENTE |
 
 ---
 
@@ -57,6 +57,29 @@ administrativo   agendamento        atendimento
               ├─ clinica_agendamento
               └─ clinica_atendimento
 ```
+
+---
+
+## Decisão atual de ambientes e CI/CD
+
+Após discussão com o squad, a implementação de Kubernetes foi retirada da entrega atual. A decisão prática agora é:
+
+| Tema | Decisão |
+|---|---|
+| Ambientes | Docker Compose com `homologation` e `production` |
+| `homologation` | ambiente atual: 1 MySQL com 3 databases lógicos |
+| `production` | containers da aplicação apontando para 3 bancos externos/DBaaS |
+| CI/CD | GitHub Actions (cloud) com publicação de imagens no GHCR |
+| Demonstração | push no GitHub → workflow → `mvn test` → build dos JARs → build/push das 4 imagens Docker no `ghcr.io/tiago-monteirox/clinica-*` → (opcional) smoke test |
+| Frontend | adiado para depois |
+
+Documentos criados/atualizados para essa decisão:
+
+- [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md) — guia de Docker Compose por ambiente.
+- [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md) — guia de CI/CD com GitHub Actions e GHCR.
+- [`13-AMBIENTES-E-WIREFRAMES.md`](13-AMBIENTES-E-WIREFRAMES.md) — marcado como frontend adiado e proposta Kubernetes substituída.
+
+Kubernetes fica como evolução futura, não como entrega principal.
 
 ---
 
@@ -196,15 +219,218 @@ mvn test
 
 ---
 
+## Verificar rotas no Swagger UI
+
+Cada microsserviço expõe seu próprio Swagger. O **gateway** não tem Swagger (é WebFlux puro, sem controllers REST próprios) — para inspecionar contratos, abra o Swagger do serviço de destino diretamente na sua porta.
+
+### URLs
+
+| Serviço | Swagger UI | OpenAPI JSON |
+|---|---|---|
+| `administrativo` | http://localhost:8081/swagger-ui.html | http://localhost:8081/v3/api-docs |
+| `agendamento`    | http://localhost:8082/swagger-ui.html | http://localhost:8082/v3/api-docs |
+| `atendimento`    | http://localhost:8083/swagger-ui.html | http://localhost:8083/v3/api-docs |
+
+Todos os três retornam `302 → /swagger-ui/index.html` quando acessados pela URL canônica e `200` no JSON. Acesso ao Swagger UI e ao `/v3/api-docs` é **público** (configurado em cada `SecurityConfig` com `permitAll`).
+
+### Passo a passo de validação
+
+1. **Subir a stack e esperar ficar saudável**
+   ```bash
+   docker compose up --build -d
+   docker compose ps              # 5 containers Up; mysql Healthy
+   ```
+
+2. **Abrir os três Swaggers no navegador** — confirmar que carregam sem 401/500:
+   ```bash
+   xdg-open http://localhost:8081/swagger-ui.html
+   xdg-open http://localhost:8082/swagger-ui.html
+   xdg-open http://localhost:8083/swagger-ui.html
+   ```
+
+3. **Conferir os `@Tag` por serviço** — devem aparecer exatamente esses grupos no menu lateral do Swagger UI:
+
+   | Swagger | `@Tag`s esperados |
+   |---|---|
+   | `administrativo:8081` | `Autenticação`, `Convênios`, `Médicos`, `Pacientes` |
+   | `agendamento:8082`    | `Agendamentos` |
+   | `atendimento:8083`    | `Atendimentos` |
+
+4. **Pegar um JWT válido** (qualquer um dos dois métodos):
+
+   Pelo gateway (recomendado, mesmo fluxo do front):
+   ```bash
+   TOKEN=$(curl -s -X POST http://localhost:8084/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"admin@clinica.com","senha":"admin123"}' | jq -r '.data.token')
+   echo $TOKEN
+   ```
+
+   Direto no administrativo (sem passar pelo gateway):
+   ```bash
+   TOKEN=$(curl -s -X POST http://localhost:8081/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"admin@clinica.com","senha":"admin123"}' | jq -r '.data.token')
+   ```
+
+5. **Autorizar no Swagger UI** — **AVISO IMPORTANTE:**
+   O `OpenAPI` dos serviços ainda **não tem `SecurityScheme` HTTP Bearer configurado** (`@SecurityScheme(name = "bearer-jwt", type = HTTP, scheme = "bearer", bearerFormat = "JWT")`). Por isso, o botão **Authorize** não aparece no Swagger UI no estado atual.
+
+   Enquanto o `SecurityScheme` não é adicionado (item do **PASSO 15**), use uma destas três opções para testar rotas protegidas:
+
+   - **Opção A — Try it out + header manual:** clicar `Try it out` em qualquer endpoint, expandir os parâmetros, e adicionar manualmente o header `Authorization: Bearer <TOKEN>` na request. (Funciona endpoint a endpoint.)
+
+   - **Opção B — Extensão do navegador:** ModHeader / Header Editor para injetar `Authorization: Bearer <TOKEN>` em todas as chamadas do Swagger UI automaticamente.
+
+   - **Opção C — curl direto** (mais rápido para validar o contrato sem UI):
+     ```bash
+     curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8081/v1/convenios   | jq .
+     curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8082/v1/agendamentos | jq .
+     curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8083/v1/atendimentos | jq .
+     ```
+
+6. **Validar um endpoint protegido pelo Swagger (Opção A)**
+   1. No Swagger do `administrativo`, expandir `Convênios → GET /v1/convenios`.
+   2. Clicar `Try it out` → `Execute` **sem** token → resposta `401` (esperado).
+   3. Repetir adicionando o header `Authorization: Bearer <TOKEN>` em `Parameters` → `Add string parameter` → header → resposta `200` com lista de convênios.
+
+7. **Validar um endpoint público pelo Swagger** (não precisa de token)
+   - `administrativo → Autenticação → POST /auth/login` com body `{"email":"admin@clinica.com","senha":"admin123"}` → `200` com `data.token`.
+   - `administrativo → GET /v1/medicos/{id}/exists` → `200` (rota pública usada pelo Feign).
+
+8. **Validar autorização por role**
+   1. Logar como recepcionista (`recepcionista@clinica.com / recep123`, se seedado — caso contrário, criar via `/auth/register` autenticado como ADMIN).
+   2. Tentar `POST /v1/convenios` → `403` (apenas ADMIN cria convênio — ver matriz de roles acima).
+   3. Tentar `POST /v1/pacientes` → `201` (recepcionista pode).
+
+### Critério de aceite do Swagger
+
+- [ ] Os três Swaggers UI carregam (`/swagger-ui.html` → `302` → página renderiza).
+- [ ] `/v3/api-docs` de cada serviço retorna `200` com JSON OpenAPI válido.
+- [ ] Cada serviço lista seus `@Tag`s corretamente.
+- [ ] Endpoint público (`/auth/login`, `/v1/*/exists`, `/actuator/health`) responde sem token.
+- [ ] Endpoint protegido responde `401` sem token e `200` com `Authorization: Bearer <jwt>`.
+- [ ] Endpoint com role insuficiente responde `403`.
+
+**Pendência conhecida:** adicionar `@SecurityScheme` global em cada serviço para habilitar o botão **Authorize** do Swagger UI. Faz parte do polimento do PASSO 15 (ver lista abaixo).
+
+---
+
+## Como rodar no Windows
+
+A stack é portável (tudo em Docker + variáveis de ambiente). Esta seção lista as diferenças práticas em relação ao roteiro Linux/macOS.
+
+### Pré-requisitos
+
+| Item | Versão | Onde baixar |
+|---|---|---|
+| Docker Desktop + WSL2 backend | atual | https://www.docker.com/products/docker-desktop |
+| JDK 21 (Temurin) | 21 | https://adoptium.net |
+| Maven | 3.9+ | https://maven.apache.org/download.cgi (ou usar IntelliJ embedded) |
+| Git for Windows | atual | https://git-scm.com/download/win |
+| (Opcional) `jq` | atual | `choco install jq` ou `scoop install jq` |
+
+### Setup inicial
+
+```powershell
+git clone git@github.com:Tiago-Monteirox/clinica-medica-api.git
+cd clinica-medica-api
+
+# O repositório tem .gitattributes com eol=lf, então o checkout já vem com
+# line endings corretos para Dockerfile/init.sql/.sh/.yml.
+git config --get core.autocrlf   # se retornar 'true', forçar:
+git config core.autocrlf input
+```
+
+### Buildar e subir a stack
+
+```powershell
+# 1. Gerar os JARs (precisa de JDK 21 + Maven no PATH).
+mvn clean package -DskipTests
+
+# 2. Subir a stack (Docker Desktop deve estar rodando).
+docker compose up --build -d
+
+# 3. Conferir os 5 containers.
+docker compose ps
+```
+
+### Smoke test em PowerShell (sem `jq`)
+
+Equivalente PowerShell ao `curl + jq` dos exemplos Linux:
+
+```powershell
+# Login via gateway
+$resp = Invoke-RestMethod -Uri http://localhost:8084/auth/login `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"email":"admin@clinica.com","senha":"admin123"}'
+
+$TOKEN = $resp.data.token
+$headers = @{ Authorization = "Bearer $TOKEN" }
+
+# Lista convênios
+Invoke-RestMethod -Uri http://localhost:8084/api/admin/v1/convenios -Headers $headers
+
+# Sem token → deve dar 401
+try {
+  Invoke-RestMethod -Uri http://localhost:8084/api/admin/v1/convenios
+} catch {
+  $_.Exception.Response.StatusCode.value__   # 401
+}
+```
+
+Se preferir manter os comandos `curl + jq` da seção anterior, é só rodar pelo **WSL2** (`wsl --install`) ou pelo **Git Bash** que vem com o Git for Windows — ambos têm `curl` e `jq` (Git Bash precisa instalar `jq` separado).
+
+### Pontos de atenção
+
+| Ponto | Detalhe |
+|---|---|
+| **Porta 8084** | A escolha de `8084:8080` no `docker-compose.yml` foi por conta de um WordPress local no PC original. Em outras máquinas a 8080 está livre — pode editar para `8080:8080` ou deixar como está. |
+| **Porta 3307** | MySQL exposto no host. Se houver outro MySQL local na máquina, trocar para `3308:3306` (ou qualquer livre). |
+| **WSL2 backend** | Docker Desktop deve estar no modo WSL2 (padrão moderno). No backend Hyper-V antigo a stack ainda sobe, mas com bind mount mais lento. |
+| **Line endings** | `.gitattributes` na raiz garante LF nos arquivos sensíveis (`Dockerfile`, `init.sql`, `*.sh`, `*.yml`). Se aparecer erro do tipo `^M: bad interpreter` ou MySQL falhar ao ler `init.sql`, rodar `git checkout-index --force --all` para reaplicar. |
+| **`mvn clean package` é obrigatório antes do `docker compose up --build`** | O `Dockerfile` é runtime-only (só copia o JAR pronto). Esquecer esse passo gera erro `COPY failed: file not found`. |
+| **Encerrar a stack** | `docker compose down` (mantém o volume do MySQL) ou `docker compose down -v` (apaga o banco). |
+
+### Resumindo o fluxo completo no Windows
+
+```powershell
+git clone git@github.com:Tiago-Monteirox/clinica-medica-api.git
+cd clinica-medica-api
+mvn clean package -DskipTests
+docker compose up --build -d
+# abrir http://localhost:8084 (gateway)
+# abrir http://localhost:8081/swagger-ui.html (Swagger administrativo)
+```
+
+---
+
 ## O que ficou pendente (PASSO 15)
 
-- `.github/workflows/ci.yml` para CI no GitHub Actions.
-- `.github/workflows/docker.yml` para publicação de imagens em GHCR.
-- JaCoCo plugin no `pom.xml` para relatórios de cobertura.
-- Badges no README.
-- Revisão final dos `@Tag` / `@Operation` no Swagger.
+- Separar Docker Compose em base + overrides:
+  - `docker-compose.yml`
+  - `docker-compose.homologation.yml`
+  - `docker-compose.production.yml`
+- Criar exemplos de ambiente:
+  - `.env.homologation.example`
+  - `.env.production.example`
+- Criar smoke tests:
+  - `scripts/smoke-homologation.sh`
+  - `scripts/smoke-production.sh`
+- Criar workflows em `.github/workflows/`:
+  - `ci.yml` — `mvn test` + build dos JARs + build/push das 4 imagens Docker no GHCR (matrix por módulo)
+  - `pr.yml` — apenas `mvn test` + build em pull requests (sem publicar imagem)
+- Habilitar **Read and write permissions** em `Settings → Actions → General → Workflow permissions` (necessário pro GHCR).
+- Adicionar plugin JaCoCo no `pom.xml` raiz e gerar relatório de cobertura no workflow.
+- Adicionar badges no `README.md`:
+  - status do workflow CI
+  - cobertura (Codecov ou Coveralls)
+- Tornar os pacotes do GHCR públicos (`Packages → Package settings → Change visibility`) para a banca conseguir puxar sem login.
+- Revisar Swagger em todos os serviços (`@Tag`, `@Operation`, `@Schema`) como polimento.
+- Adicionar `@SecurityScheme(name = "bearer-jwt", type = HTTP, scheme = "bearer", bearerFormat = "JWT")` em cada serviço para habilitar o botão **Authorize** do Swagger UI (hoje o usuário precisa colar o header `Authorization: Bearer <token>` manualmente em cada `Try it out`).
 
-Esses são automação e polimento — não bloqueiam o **Definition of Done** funcional. O critério "**CI verde no GitHub Actions**" (item 6 do DoD) só pode ser marcado depois do passo 15.
+Esses são automação e polimento — não bloqueiam o **Definition of Done** funcional. O critério de CI/CD agora é demonstrar o pipeline rodando no **GitHub Actions** com `mvn test` verde, JARs como artefato e as 4 imagens publicadas no GHCR.
 
 ---
 
@@ -217,7 +443,7 @@ Esses são automação e polimento — não bloqueiam o **Definition of Done** f
 | 3 | Fluxo convênio → médico → paciente → agendamento → atendimento via gateway | ATENDIDO |
 | 4 | Sem token → 401, role errada → 403 | ATENDIDO |
 | 5 | `mvn test` passa em todos os módulos | ATENDIDO |
-| 6 | CI verde no GitHub Actions | PENDENTE (PASSO 15) |
+| 6 | CI/CD com GitHub Actions rodando testes, build dos JARs e publicação de imagens Docker no GHCR | PENDENTE (PASSO 15) |
 | 7 | Swagger acessível em cada serviço sem autenticação | ATENDIDO |
 
 ---
@@ -270,10 +496,17 @@ gateway/src/main/resources/application.yml      # 4 rotas (auth, admin, agendame
 gateway/src/main/java/.../GatewayApplication.java
 gateway/src/main/java/.../security/{JwtUtil,JwtAuthenticationFilter}.java
 gateway/src/main/java/.../config/SecurityConfig.java   # permitAll no WebFlux; o filtro nosso é quem barra
+
+docs/13-AMBIENTES-E-WIREFRAMES.md             # frontend adiado; Kubernetes substituído
+docs/14-CONTEINERIZACAO-AMBIENTES.md          # novo guia Docker Compose por ambiente
+docs/15-CICD-GITHUB-ACTIONS.md                # novo guia GitHub Actions + GHCR
 ```
 
 ---
 
 ## Próximo passo
 
-Implementar o **PASSO 15** (`02-ROTEIRO.md` § PASSO 15): CI/CD e polimento.
+Implementar o **PASSO 15** pela nova estratégia documentada:
+
+1. Seguir [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md) para separar `homologation` e `production` com Docker Compose.
+2. Seguir [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md) para criar `.github/workflows/ci.yml` e publicar as 4 imagens no GHCR.

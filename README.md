@@ -148,6 +148,8 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Pipeline de build, test e deploy |
 | 11 | [Testes](docs/11-TESTES.md) | JUnit, Mockito, Testcontainers, MockMvc |
 | 12 | [Referência de Tecnologias](docs/12-TECNOLOGIAS.md) | Aprofundamento técnico de cada peça |
+| 14 | [Conteinerização por Ambiente](docs/14-CONTEINERIZACAO-AMBIENTES.md) | Homologation e production com Docker Compose |
+| 15 | [CI/CD com GitHub Actions](docs/15-CICD-GITHUB-ACTIONS.md) | Pipeline `mvn test` + build Docker + push pro GHCR |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 

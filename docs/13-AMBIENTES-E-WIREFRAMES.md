@@ -1,6 +1,7 @@
 # 13 — Ambientes e Wireframes do Frontend
 
 > Documento de proposta. Não contém código, manifests Kubernetes ou implementação de telas.
+> Status: frontend adiado. Para a decisão atual de ambientes, use [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md). A proposta Kubernetes foi substituída por Docker Compose + GitHub Actions para a entrega (ver [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md)).
 
 ## Objetivo
 
@@ -571,4 +572,3 @@ Visual neutro, limpo, com acento verde/azul clínico e badges semânticas para s
 - [ ] Erros do `ApiResponse` são exibidos de forma legível.
 - [ ] Layout funciona em desktop e mobile.
 - [ ] Interface não depende de acesso direto às portas 8081/8082/8083.
-

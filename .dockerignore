@@ -1,4 +1,5 @@
 **/target/
+!**/target/*.jar
 **/.idea/
 **/.git/
 **/.gitignore

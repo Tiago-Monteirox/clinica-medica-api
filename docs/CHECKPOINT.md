@@ -274,6 +274,12 @@ gateway/src/main/java/.../config/SecurityConfig.java   # permitAll no WebFlux; o
 
 ---
 
+## Material de apresentação
+
+Documento de defesa para a banca, com tradeoffs entre homologation (1 banco lógico) e production (3 bancos físicos), as 6 regras de design que tornam a portabilidade real, comparação operacional ponto a ponto e FAQ com respostas curtas: [`17-AMBIENTES-TRADEOFFS.md`](17-AMBIENTES-TRADEOFFS.md).
+
+---
+
 ## Próximo passo
 
 Implementar o **PASSO 15** (`02-ROTEIRO.md` § PASSO 15): CI/CD e polimento.

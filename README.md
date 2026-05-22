@@ -210,9 +210,11 @@ Estado atual: **29 testes unitários verdes** distribuídos em ConvenioServiceTe
 | 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Pipeline (pendente — ver PASSO 15) |
 | 11 | [Testes](docs/11-TESTES.md) | JUnit, Mockito, Testcontainers |
 | 12 | [Referência de Tecnologias](docs/12-TECNOLOGIAS.md) | Aprofundamento técnico |
-| 14 | [Kubernetes — Ambientes](docs/14-KUBERNETES-AMBIENTES.md) | Estratégia de ambientes em K8s |
-| 15 | [Kubernetes — Guia de Implementação](docs/15-KUBERNETES-GUIA-IMPLEMENTACAO.md) | Manifests + steps |
+| 13 | [Ambientes e Wireframes (proposta)](docs/13-AMBIENTES-E-WIREFRAMES.md) | Proposta inicial — frontend adiado, Kubernetes substituído pelo doc 14 |
+| 14 | [Conteinerização por Ambiente](docs/14-CONTEINERIZACAO-AMBIENTES.md) | Docker Compose: `homologation` (1 MySQL, 3 schemas) e `production` (3 bancos externos) |
+| 15 | [CI/CD com GitHub Actions](docs/15-CICD-GITHUB-ACTIONS.md) | Pipeline `mvn test` + build dos JARs + push das imagens para o GHCR |
 | 16 | [Frontend — Esboço](docs/16-FRONTEND.md) | SPA React + Vite + shadcn (input para o design) |
+| 17 | [Ambientes — Tradeoffs](docs/17-AMBIENTES-TRADEOFFS.md) | Justificativa de homologation × production para apresentação; FAQ pra banca |
 | — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–14 concluídos. Validações executadas. Pendências.** |
 
 ---

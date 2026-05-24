@@ -145,9 +145,15 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 07 | [API Gateway](docs/07-GATEWAY.md) | Spring Cloud Gateway, rotas |
 | 08 | [Segurança (JWT)](docs/08-SEGURANCA.md) | Autenticação, autorização por role |
 | 09 | [Docker](docs/09-DOCKER.md) | Dockerfile multi-stage, docker-compose |
-| 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Pipeline de build, test e deploy |
+| 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Visão geral do pipeline — implementação detalhada no PASSO 15 |
 | 11 | [Testes](docs/11-TESTES.md) | JUnit, Mockito, Testcontainers, MockMvc |
 | 12 | [Referência de Tecnologias](docs/12-TECNOLOGIAS.md) | Aprofundamento técnico de cada peça |
+| 13 | [Ambientes e Wireframes (proposta)](docs/13-AMBIENTES-E-WIREFRAMES.md) | Proposta inicial — frontend adiado, Kubernetes substituído pelo doc 14 |
+| 14 | [Conteinerização por Ambiente](docs/14-CONTEINERIZACAO-AMBIENTES.md) | Docker Compose: `homologation` (1 MySQL, 3 schemas) e `production` (3 bancos externos) |
+| 15 | [CI/CD com GitHub Actions](docs/15-CICD-GITHUB-ACTIONS.md) | Pipeline `mvn test` + build dos JARs + push das imagens para o GHCR |
+| 16 | [Frontend — Esboço](docs/16-FRONTEND.md) | SPA React + Vite + shadcn (input para o design) |
+| 17 | [Ambientes — Tradeoffs](docs/17-AMBIENTES-TRADEOFFS.md) | Justificativa de homologation × production para apresentação; FAQ pra banca |
+| — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–14 concluídos. Validações executadas. Pendências.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 

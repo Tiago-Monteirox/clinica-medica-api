@@ -1,6 +1,11 @@
 # Clínica Médica — Sistema de Microsserviços
 
 [![CI](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api/branch/main/graph/badge.svg)](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api)
+![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?logo=springboot)
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-ready-2496ED?logo=docker)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Sistema de gestão de clínica médica construído com arquitetura de microsserviços. Java 21, Spring Boot 3.3, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose e pipeline em GitHub Actions.
 
@@ -220,6 +225,7 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 15 | [CI/CD com GitHub Actions](docs/15-CICD-GITHUB-ACTIONS.md) | Pipeline `mvn test` + build dos JARs + push das imagens para o GHCR |
 | 16 | [Frontend — Esboço](docs/16-FRONTEND.md) | SPA React + Vite + shadcn (input para o design) |
 | 17 | [Ambientes — Tradeoffs](docs/17-AMBIENTES-TRADEOFFS.md) | Justificativa de homologation × production para apresentação; FAQ pra banca |
+| 18 | [Logging com SLF4J](docs/18-LOGGING.md) | Padronização com `@Slf4j` (Lombok), níveis de log, mapeamento por serviço |
 | — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–14 concluídos. Validações executadas. Pendências.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).

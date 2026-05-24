@@ -21,7 +21,7 @@ gateway :8084 no host / :8080 no container
         +--> atendimento    :8083
                  |
                  v
-            MySQL unico em homologation
+            MySQL único em homologation
             ├─ clinica_administrativo
             ├─ clinica_agendamento
             └─ clinica_atendimento

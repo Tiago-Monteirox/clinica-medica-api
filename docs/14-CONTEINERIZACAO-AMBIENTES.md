@@ -470,6 +470,223 @@ Verificar:
 - se não foi usado `docker-compose.homologation.yml`;
 - se o arquivo base não contém o serviço `mysql`.
 
+### Login retorna 422 "Credenciais inválidas" no primeiro boot do volume novo
+
+Causa: alguma versão antiga do `sql/init.sql` continha um `INSERT IGNORE INTO usuarios` com hash BCrypt hardcoded. Em volume Docker novo (típico ao mudar `COMPOSE_PROJECT_NAME`), o init.sql rodava primeiro e inseria o admin com hash potencialmente desalinhado do encoder do Spring, fazendo o seed Java pular (já existia) e o login falhar.
+
+Correção atual: o seed do admin é responsabilidade exclusiva do `CommandLineRunner` em `AdministrativoApplication.seedAdmin` — o `init.sql` só cria o schema, não insere usuário.
+
+Se você ainda encontrar esse erro:
+
+```bash
+# 1. apague o usuário com hash quebrado
+docker compose exec mysql mysql -uroot -D clinica_administrativo \
+  -e "DELETE FROM usuarios WHERE email = 'admin@clinica.com';"
+# 2. reinicie o administrativo (vai rodar o seed Java)
+docker compose restart administrativo
+# 3. teste o login
+curl -s -X POST http://localhost:8084/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@clinica.com","senha":"admin123"}'
+```
+
+---
+
+## Referência dos containers
+
+Tabela única com tudo o que cada container expõe, depende e consome.
+
+> Convenção de nomes pós-Compose: `${COMPOSE_PROJECT_NAME}-<service>-1`.
+> Em `homologation` os containers ficam `clinica-homologation-administrativo-1`, etc.
+> Em `production`, `clinica-production-administrativo-1`, etc.
+
+### `mysql` — só existe em homologation
+
+| Campo | Valor |
+|---|---|
+| Imagem | `mysql:8.3` |
+| Porta interna | `3306` |
+| Porta no host (hom.) | `${MYSQL_HOST_PORT}` (default `3307`) |
+| Porta no host (prod.) | **não sobe** (banco é externo) |
+| Volume persistente | `clinica_mysql_data` → `/var/lib/mysql` |
+| Init SQL | `./sql/init.sql` → `/docker-entrypoint-initdb.d/init.sql` (cria 3 schemas + seed) |
+| Healthcheck | `mysqladmin ping` a cada 10s, até 5 tentativas |
+| Env vars | `MYSQL_ALLOW_EMPTY_PASSWORD=yes` (didático; em produção real, NÃO) |
+| Depende de | — |
+
+### `administrativo`
+
+| Campo | Valor |
+|---|---|
+| Build | `Dockerfile` com `ARG MODULE=administrativo` (copia o JAR do host) |
+| Porta interna | `8081` |
+| Porta no host (hom.) | `8081` (publicada para Swagger/debug) |
+| Porta no host (prod.) | não publicada (acesso só pela rede interna via gateway) |
+| Env vars | `SERVER_PORT`, `SPRING_DATASOURCE_URL` ← `${ADMIN_DB_URL}`, `SPRING_DATASOURCE_USERNAME` ← `${ADMIN_DB_USER}`, `SPRING_DATASOURCE_PASSWORD` ← `${ADMIN_DB_PASSWORD}`, `JWT_SECRET`, `JPA_SHOW_SQL`, `JAVA_OPTS` |
+| Depende de | `mysql` (só em homologation, condition: service_healthy) |
+| Healthcheck | — (Spring Boot Actuator interno responde via gateway) |
+| Swagger | `http://localhost:8081/swagger-ui.html` (só hom.) |
+
+### `agendamento`
+
+| Campo | Valor |
+|---|---|
+| Build | `Dockerfile` com `ARG MODULE=agendamento` |
+| Porta interna | `8082` |
+| Porta no host (hom.) | `8082` |
+| Porta no host (prod.) | não publicada |
+| Env vars | `SERVER_PORT`, `SPRING_DATASOURCE_URL` ← `${AGENDAMENTO_DB_URL}`, `SPRING_DATASOURCE_USERNAME` ← `${AGENDAMENTO_DB_USER}`, `SPRING_DATASOURCE_PASSWORD` ← `${AGENDAMENTO_DB_PASSWORD}`, `ADMINISTRATIVO_URL=http://administrativo:8081` (Feign), `JWT_SECRET`, `JPA_SHOW_SQL`, `JAVA_OPTS` |
+| Depende de | `administrativo` (started); `mysql` (healthy, só em hom.) |
+| Swagger | `http://localhost:8082/swagger-ui.html` (só hom.) |
+
+### `atendimento`
+
+| Campo | Valor |
+|---|---|
+| Build | `Dockerfile` com `ARG MODULE=atendimento` |
+| Porta interna | `8083` |
+| Porta no host (hom.) | `8083` |
+| Porta no host (prod.) | não publicada |
+| Env vars | `SERVER_PORT`, `SPRING_DATASOURCE_URL` ← `${ATENDIMENTO_DB_URL}`, `SPRING_DATASOURCE_USERNAME` ← `${ATENDIMENTO_DB_USER}`, `SPRING_DATASOURCE_PASSWORD` ← `${ATENDIMENTO_DB_PASSWORD}`, `AGENDAMENTO_URL=http://agendamento:8082` (Feign), `JWT_SECRET`, `JPA_SHOW_SQL`, `JAVA_OPTS` |
+| Depende de | `agendamento` (started); `mysql` (healthy, só em hom.) |
+| Swagger | `http://localhost:8083/swagger-ui.html` (só hom.) |
+
+### `gateway`
+
+| Campo | Valor |
+|---|---|
+| Build | `Dockerfile` com `ARG MODULE=gateway` |
+| Porta interna | `8080` |
+| Porta no host (hom.) | `${GATEWAY_HOST_PORT}` (default `8084` — `8080` já é usado por wordpress local) |
+| Porta no host (prod.) | `${GATEWAY_HOST_PORT}` (default `8080`) |
+| Env vars | `SERVER_PORT=8080`, `ADMINISTRATIVO_URL=http://administrativo:8081`, `AGENDAMENTO_URL=http://agendamento:8082`, `ATENDIMENTO_URL=http://atendimento:8083`, `JWT_SECRET`, `JAVA_OPTS` |
+| Depende de | `administrativo`, `agendamento`, `atendimento` (todos started) |
+| Health público | `http://localhost:${GATEWAY_HOST_PORT}/actuator/health` |
+
+---
+
+## Comandos por container
+
+Todos os comandos abaixo assumem `--env-file .env.homologation -f docker-compose.yml -f docker-compose.homologation.yml`. Para production, troque por `.env.production` e `docker-compose.production.yml`. Para manter os comandos curtos, exporte:
+
+```bash
+export COMPOSE_FILE=docker-compose.yml:docker-compose.homologation.yml
+export COMPOSE_ENV_FILES=.env.homologation
+```
+
+Com isso `docker compose ...` passa a usar overlay + env automaticamente.
+
+### Subir tudo
+
+```bash
+docker compose up --build -d
+```
+
+### Subir só um container (e suas dependências)
+
+```bash
+docker compose up -d mysql              # só o banco
+docker compose up -d administrativo     # mysql + administrativo
+docker compose up -d agendamento        # mysql + administrativo + agendamento
+docker compose up -d gateway            # tudo (gateway depende dos 3)
+```
+
+### Parar / derrubar
+
+```bash
+docker compose stop gateway             # para só um, mantém os outros
+docker compose down                     # derruba tudo, mantém volumes (dados do MySQL persistem)
+docker compose down -v                  # derruba tudo e apaga o volume clinica_mysql_data
+```
+
+### Logs
+
+```bash
+docker compose logs -f gateway          # acompanha em tempo real
+docker compose logs --tail=100 administrativo
+docker compose logs --since=5m          # últimos 5 minutos de todos
+```
+
+### Status e healthcheck
+
+```bash
+docker compose ps                       # status dos containers
+docker compose ps mysql                 # só um
+docker inspect --format='{{.State.Health.Status}}' \
+  $(docker compose ps -q mysql)         # healthcheck do mysql
+```
+
+### Shell dentro de um container
+
+```bash
+docker compose exec administrativo sh   # shell na imagem da app
+docker compose exec mysql mysql -uroot  # cliente MySQL no banco
+```
+
+### Rebuild forçado (após mudar Dockerfile ou JAR)
+
+```bash
+mvn clean package -DskipTests           # rebuilda JARs no host
+docker compose build --no-cache gateway # rebuilda imagem sem cache
+docker compose up -d --force-recreate gateway
+```
+
+### Reset do banco de homologation (apaga tudo)
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+---
+
+## Segredos e URLs por ambiente
+
+Comparação direta entre o que cada microsserviço consome em cada ambiente.
+
+### `administrativo`
+
+| Variável | Homologation | Production |
+|---|---|---|
+| `ADMIN_DB_URL` | `jdbc:mysql://mysql:3306/clinica_administrativo?...&useSSL=false` | `jdbc:mysql://db-administrativo.internal:3306/clinica_administrativo?useSSL=true` |
+| `ADMIN_DB_USER` | `root` | `svc_administrativo` (usuário próprio, menor privilégio) |
+| `ADMIN_DB_PASSWORD` | vazio | vem do secret manager — placeholder `CHANGE_ME_FROM_SECRET_MANAGER` no `.env.production.example` |
+
+### `agendamento`
+
+| Variável | Homologation | Production |
+|---|---|---|
+| `AGENDAMENTO_DB_URL` | `jdbc:mysql://mysql:3306/clinica_agendamento?...&useSSL=false` | `jdbc:mysql://db-agendamento.internal:3306/clinica_agendamento?useSSL=true` |
+| `AGENDAMENTO_DB_USER` | `root` | `svc_agendamento` |
+| `AGENDAMENTO_DB_PASSWORD` | vazio | secret manager |
+
+### `atendimento`
+
+| Variável | Homologation | Production |
+|---|---|---|
+| `ATENDIMENTO_DB_URL` | `jdbc:mysql://mysql:3306/clinica_atendimento?...&useSSL=false` | `jdbc:mysql://db-atendimento.internal:3306/clinica_atendimento?useSSL=true` |
+| `ATENDIMENTO_DB_USER` | `root` | `svc_atendimento` |
+| `ATENDIMENTO_DB_PASSWORD` | vazio | secret manager |
+
+### Comuns (consumidos por todos os 4 serviços + gateway)
+
+| Variável | Homologation | Production |
+|---|---|---|
+| `JWT_SECRET` | `dev-secret-please-change-...` (didático, no `.env.homologation.example`) | **vem do secret manager** — placeholder no `.env.production.example`. NUNCA reutilizar o segredo de homologation |
+| `JPA_SHOW_SQL` | `true` (debug) | `false` |
+| `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom` | mesmo (pode ajustar `MaxRAMPercentage` por instância) |
+| `GATEWAY_HOST_PORT` | `8084` (8080 já usado por wordpress local) | `8080` (porta padrão pública) |
+| `MYSQL_HOST_PORT` | `3307` | — (não há mysql local) |
+| `COMPOSE_PROJECT_NAME` | `clinica-homologation` | `clinica-production` |
+
+### Observações de segurança
+
+1. **`.env.homologation` e `.env.production` estão no `.gitignore`** — apenas os arquivos `*.example` são versionados, com placeholders.
+2. Em produção real, `JWT_SECRET` e as senhas devem vir de um **secret manager** (AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault) e ser injetadas no host antes do `docker compose up`. Nunca colar o valor no `.env.production`.
+3. Cada serviço usa **usuário próprio no banco** em produção (`svc_administrativo`, `svc_agendamento`, `svc_atendimento`) — princípio do menor privilégio. Se um serviço for comprometido, o blast radius fica restrito ao seu schema.
+4. Em produção, **só o gateway publica porta no host** (`8080`). Os serviços de domínio são acessíveis apenas pela rede interna `clinica-net`. Não há como bater diretamente em `administrativo` por fora.
+5. **JPA_SHOW_SQL=true em produção é vazamento de informação** (SQL com valores aparece no log). Manter sempre `false` fora de homologation.
+
 ---
 
 ## Definition of Done

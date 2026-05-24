@@ -510,9 +510,38 @@ Documento de defesa para a banca, com tradeoffs entre homologation (1 banco lóg
 
 ---
 
+## PASSO 14 — Conteinerização por ambiente (implementado em 2026-05-24)
+
+Implementação dos overlays Docker Compose seguindo [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md).
+
+**Arquivos criados/alterados:**
+
+```
+docker-compose.yml                    # base neutra (sem mysql, sem ports, JDBC via env)
+docker-compose.homologation.yml      # overlay: mysql local + portas 8081-8083/8084/3307
+docker-compose.production.yml        # overlay: sem mysql, só gateway publicado
+.env.homologation.example            # JDBC para mysql:3306 + admin seed default
+.env.production.example              # placeholders SSL + user por serviço
+scripts/smoke-homologation.sh        # 5 checks: health, login, GET, POST, 401
+scripts/smoke-production.sh          # mesmos checks, parametrizado por env
+.gitignore                            # passa a ignorar .env reais, preserva *.example
+sql/init.sql                          # removido INSERT IGNORE de usuarios (seed = Java)
+```
+
+**Validação executada:**
+
+- `docker compose ... config` valida sintaticamente os 2 overlays.
+- Stack subiu via `docker compose --env-file .env.homologation -f docker-compose.yml -f docker-compose.homologation.yml up --build -d`.
+- `./scripts/smoke-homologation.sh` passou 5/5 (Health UP, Login token, GET 200, POST 201, GET sem token 401).
+
+**Bug corrigido durante a validação:**
+
+O `sql/init.sql` continha um `INSERT IGNORE` em `usuarios` com hash BCrypt hardcoded que não batia com `admin123` (estava latente — só apareceu agora porque o `COMPOSE_PROJECT_NAME` mudou e gerou um volume Docker novo). O hash hardcoded foi removido; o `CommandLineRunner` em `AdministrativoApplication.seedAdmin` é fonte única do admin.
+
+DoD do doc 14: itens 1-8 cumpridos.
+
+---
+
 ## Próximo passo
 
-Implementar o **PASSO 15** pela nova estratégia documentada:
-
-1. Seguir [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md) para separar `homologation` e `production` com Docker Compose.
-2. Seguir [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md) para criar `.github/workflows/ci.yml` e publicar as 4 imagens no GHCR.
+Implementar o **PASSO 15** seguindo [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md): criar `.github/workflows/ci.yml`, publicar as 4 imagens no GHCR, adicionar JaCoCo + badges.

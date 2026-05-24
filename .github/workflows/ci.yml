@@ -38,3 +38,33 @@ jobs:
             atendimento/target/*.jar
             gateway/target/*.jar
           retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        module: [administrativo, agendamento, atendimento, gateway]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: jars
+          path: .
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: MODULE=${{ matrix.module }}
+          push: true
+          tags: |
+            ghcr.io/tiago-monteirox/clinica-${{ matrix.module }}:${{ github.sha }}
+            ghcr.io/tiago-monteirox/clinica-${{ matrix.module }}:latest

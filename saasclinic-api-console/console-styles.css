@@ -1,0 +1,176 @@
+/* SaasClinic API Console — light, dark-supported, Postman-inspired */
+
+:root {
+  --c-bg: #fbfaf8;
+  --c-bg-sunken: #f3f1ec;
+  --c-surface: #ffffff;
+  --c-surface-2: #f7f6f3;
+  --c-border: #e6e2d8;
+  --c-border-strong: #d4cebf;
+  --c-text: #1c1a17;
+  --c-muted: #55514a;
+  --c-subtle: #7a7567;
+  --c-accent: #1f3699;
+  --c-accent-hover: #1a2d7a;
+  --c-accent-soft: #eef2ff;
+  --c-accent-border: #b9c8f7;
+
+  --c-method-get: #2c7a7b;
+  --c-method-post: #1f6f43;
+  --c-method-put: #92561a;
+  --c-method-delete: #a33333;
+
+  --c-success: #2f7a4f;
+  --c-success-bg: #e6f1ea;
+  --c-warning: #9a6a16;
+  --c-warning-bg: #f8eccf;
+  --c-danger:  #a33333;
+  --c-danger-bg: #f6e1de;
+  --c-info: #1f3699;
+  --c-info-bg: #eef2ff;
+
+  --c-code: #2a2823;
+  --c-code-bg: #1a1d23;
+  --c-json-key: #5b7ee5;
+  --c-json-string: #2c7a7b;
+  --c-json-number: #92561a;
+  --c-json-bool: #a33333;
+  --c-json-null: #7a7567;
+
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 18px 40px -12px rgba(15, 23, 42, 0.18);
+
+  --side-w: 320px;
+  --gap: 16px;
+}
+
+[data-theme="dark"] {
+  --c-bg: #0e1014;
+  --c-bg-sunken: #08090c;
+  --c-surface: #15171c;
+  --c-surface-2: #1c1f26;
+  --c-border: #262931;
+  --c-border-strong: #393d48;
+  --c-text: #ecedf2;
+  --c-muted: #a4a8b5;
+  --c-subtle: #7a7f8c;
+  --c-accent: #8aa3ef;
+  --c-accent-hover: #b9c8f7;
+  --c-accent-soft: rgba(91, 126, 229, 0.15);
+  --c-accent-border: rgba(91, 126, 229, 0.35);
+
+  --c-method-get: #5dc1c3;
+  --c-method-post: #6fc28f;
+  --c-method-put: #e3b864;
+  --c-method-delete: #e58980;
+
+  --c-success: #6fc28f;
+  --c-success-bg: rgba(111, 194, 143, 0.12);
+  --c-warning: #e3b864;
+  --c-warning-bg: rgba(227, 184, 100, 0.12);
+  --c-danger: #e58980;
+  --c-danger-bg: rgba(229, 137, 128, 0.12);
+  --c-info: #8aa3ef;
+  --c-info-bg: rgba(138, 163, 239, 0.12);
+
+  --c-code-bg: #0a0c10;
+  --c-json-key: #8aa3ef;
+  --c-json-string: #6fc28f;
+  --c-json-number: #e3b864;
+  --c-json-bool: #e58980;
+  --c-json-null: #7a7f8c;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--c-text);
+  background: var(--c-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, p { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--c-border-strong); border-radius: 6px; border: 2px solid var(--c-bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--c-subtle); }
+
+.mono { font-family: var(--font-mono); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Layout */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--side-w) 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar main";
+  height: 100vh;
+}
+
+.topbar { grid-area: topbar; }
+.sidebar { grid-area: sidebar; }
+.main    { grid-area: main; overflow: hidden; }
+
+/* Method colors */
+.m-get    { color: var(--c-method-get); }
+.m-post   { color: var(--c-method-post); }
+.m-put    { color: var(--c-method-put); }
+.m-delete { color: var(--c-method-delete); }
+.m-patch  { color: var(--c-warning); }
+
+/* JSON viewer */
+.json-viewer {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--c-text);
+  padding: 16px;
+  background: var(--c-surface-2);
+  border-radius: 6px;
+  border: 1px solid var(--c-border);
+  overflow: auto;
+  max-height: 100%;
+}
+.json-viewer .k { color: var(--c-json-key); }
+.json-viewer .s { color: var(--c-json-string); }
+.json-viewer .n { color: var(--c-json-number); }
+.json-viewer .b { color: var(--c-json-bool); }
+.json-viewer .nu { color: var(--c-json-null); font-style: italic; }
+.json-viewer .p { color: var(--c-subtle); }
+
+/* Mobile fallback */
+@media (max-width: 900px) {
+  .app-shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+  .sidebar { display: none; }
+}

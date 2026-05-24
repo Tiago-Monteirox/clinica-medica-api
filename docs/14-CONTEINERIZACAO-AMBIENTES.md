@@ -679,6 +679,44 @@ Comparação direta entre o que cada microsserviço consome em cada ambiente.
 | `MYSQL_HOST_PORT` | `3307` | — (não há mysql local) |
 | `COMPOSE_PROJECT_NAME` | `clinica-homologation` | `clinica-production` |
 
+### Visualizar containers em tempo real (apresentação)
+
+Para apresentações e demonstrações existe um overlay opcional [`docker-compose.tools.yml`](../docker-compose.tools.yml) que sobe o [Dozzle](https://dozzle.dev) — uma UI web que lista todos os containers da stack e exibe logs em tempo real, sem login, sem configuração.
+
+**Subir com Dozzle junto:**
+
+```bash
+docker compose --env-file .env.homologation \
+  -f docker-compose.yml \
+  -f docker-compose.homologation.yml \
+  -f docker-compose.tools.yml \
+  up -d
+```
+
+**Acesso:** `http://localhost:9999` (configurável por `DOZZLE_HOST_PORT`).
+
+**Características relevantes:**
+
+| Item | Como está configurado |
+|---|---|
+| Auth | sem auth (didático). Para projetar em apresentação pública use `DOZZLE_USERNAME`/`DOZZLE_PASSWORD` ou um proxy reverso |
+| Acesso ao Docker | docker.sock montado **read-only** (`:ro`) — Dozzle não consegue parar/destruir containers |
+| Filtro de containers | `DOZZLE_FILTER=label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}` — só aparecem os containers DESTE projeto, mesmo que você tenha outros containers no host |
+| Logs | últimas 300 linhas + stream em tempo real |
+| Telemetria do Dozzle | desligada (`DOZZLE_NO_ANALYTICS=true`) |
+
+**Cenário para a banca:**
+
+1. Stack já está rodando em `homologation` com Dozzle.
+2. Abrir `http://localhost:9999` no projetor — lista os 5 containers da aplicação verdes.
+3. Em outra aba do navegador, rodar uma chamada (Swagger ou o `smoke-homologation.sh`) — os logs aparecem no Dozzle em tempo real.
+4. Clicar em um container (ex: `gateway`) para mostrar requisições chegando filtro JWT em ação.
+
+**Quando NÃO usar:**
+
+- Em `production` exposta na internet sem auth/proxy reverso — qualquer pessoa com a URL veria todos os logs (informação sensível, tokens, payloads).
+- Em ambientes regulados (LGPD, PCI) — logs podem conter PII. Use uma solução de observabilidade própria (Grafana Loki, Datadog, etc.).
+
 ### Observações de segurança
 
 1. **`.env.homologation` e `.env.production` estão no `.gitignore`** — apenas os arquivos `*.example` são versionados, com placeholders.

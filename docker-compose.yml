@@ -1,52 +1,26 @@
-version: "3.9"
-
-# ─── Stack completa ─────────────────────────────────────────────────────────
-# Para simplicidade didática, um único MySQL hospeda os 3 bancos:
-#   clinica_administrativo, clinica_agendamento, clinica_atendimento.
-# Em produção, cada serviço teria seu próprio MySQL (database-per-service literal).
-# A separação lógica já está garantida no JDBC URL de cada microsserviço.
+# ─── Base comum dos 4 microsserviços ────────────────────────────────────────
+# Este arquivo é AMBIENTE-NEUTRO. Não declara MySQL nem expõe portas no host.
+# Use sempre com um dos overlays:
+#   docker compose --env-file .env.homologation -f docker-compose.yml -f docker-compose.homologation.yml up --build -d
+#   docker compose --env-file .env.production   -f docker-compose.yml -f docker-compose.production.yml   up --build -d
+# Variáveis esperadas no .env: ver .env.homologation.example / .env.production.example.
 
 services:
-
-  mysql:
-    image: mysql:8.3
-    container_name: clinica-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-    ports:
-      - "3307:3306"
-    volumes:
-      - clinica_mysql_data:/var/lib/mysql
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    networks: [clinica-net]
 
   administrativo:
     build:
       context: .
       args:
         MODULE: administrativo
-    container_name: clinica-administrativo
     restart: unless-stopped
-    ports:
-      - "8081:8081"
     environment:
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/clinica_administrativo?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ""
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-please-change-in-production-with-256-bits-minimum}
-      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
-    depends_on:
-      mysql:
-        condition: service_healthy
+      SPRING_DATASOURCE_URL: ${ADMIN_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${ADMIN_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${ADMIN_DB_PASSWORD}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+      JWT_SECRET: ${JWT_SECRET}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom}
     networks: [clinica-net]
 
   agendamento:
@@ -54,21 +28,17 @@ services:
       context: .
       args:
         MODULE: agendamento
-    container_name: clinica-agendamento
     restart: unless-stopped
-    ports:
-      - "8082:8082"
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/clinica_agendamento?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_DATASOURCE_URL: ${AGENDAMENTO_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${AGENDAMENTO_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${AGENDAMENTO_DB_PASSWORD}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
       ADMINISTRATIVO_URL: http://administrativo:8081
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-please-change-in-production-with-256-bits-minimum}
-      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+      JWT_SECRET: ${JWT_SECRET}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom}
     depends_on:
-      mysql:
-        condition: service_healthy
       administrativo:
         condition: service_started
     networks: [clinica-net]
@@ -78,21 +48,17 @@ services:
       context: .
       args:
         MODULE: atendimento
-    container_name: clinica-atendimento
     restart: unless-stopped
-    ports:
-      - "8083:8083"
     environment:
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/clinica_atendimento?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_DATASOURCE_URL: ${ATENDIMENTO_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${ATENDIMENTO_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${ATENDIMENTO_DB_PASSWORD}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
       AGENDAMENTO_URL: http://agendamento:8082
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-please-change-in-production-with-256-bits-minimum}
-      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+      JWT_SECRET: ${JWT_SECRET}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom}
     depends_on:
-      mysql:
-        condition: service_healthy
       agendamento:
         condition: service_started
     networks: [clinica-net]
@@ -102,19 +68,14 @@ services:
       context: .
       args:
         MODULE: gateway
-    container_name: clinica-gateway
     restart: unless-stopped
-    # Porta 8084 no host (8080 já é usado pelo wordpress local).
-    # Em produção/ambiente limpo trocar para 8080:8080.
-    ports:
-      - "8084:8080"
     environment:
       SERVER_PORT: 8080
       ADMINISTRATIVO_URL: http://administrativo:8081
       AGENDAMENTO_URL: http://agendamento:8082
       ATENDIMENTO_URL: http://atendimento:8083
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-please-change-in-production-with-256-bits-minimum}
-      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+      JWT_SECRET: ${JWT_SECRET}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom}
     depends_on:
       administrativo:
         condition: service_started
@@ -123,9 +84,6 @@ services:
       atendimento:
         condition: service_started
     networks: [clinica-net]
-
-volumes:
-  clinica_mysql_data:
 
 networks:
   clinica-net:

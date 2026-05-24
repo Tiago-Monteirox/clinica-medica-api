@@ -89,18 +89,10 @@ CREATE TABLE IF NOT EXISTS usuarios (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;
 
--- Seed: admin inicial
--- A aplicação já cria este usuário via CommandLineRunner quando não existe.
--- Este INSERT é útil para inicializar o banco antes do primeiro boot.
--- Senha: admin123 — BCrypt 10 rounds
-INSERT IGNORE INTO usuarios (nome, email, senha_hash, role, created_at)
-VALUES (
-    'Administrador',
-    'admin@clinica.com',
-    '$2a$10$N.zmdr9zkMmsCf5NJ4mZ0u7GkWvTOSAfD0IWBaSM5Hk.5eBjNe0Sm',
-    'ADMIN',
-    NOW()
-);
+-- Seed do admin: feito em runtime pelo CommandLineRunner em
+-- AdministrativoApplication.seedAdmin (admin@clinica.com / admin123, role ADMIN).
+-- Mantido lá para que o hash seja sempre coerente com o BCryptPasswordEncoder
+-- do Spring, em vez de um hash hardcoded que pode descolar do encoder.
 
 
 -- ============================================================

@@ -1,0 +1,27 @@
+# ─── Overlay PRODUCTION ─────────────────────────────────────────────────────
+# Não sobe MySQL local. Cada microsserviço recebe a URL JDBC do seu banco
+# externo (DBaaS, RDS, Cloud SQL, etc.) e credenciais próprias por serviço.
+# Uso:
+#   docker compose --env-file .env.production \
+#     -f docker-compose.yml -f docker-compose.production.yml \
+#     up --build -d
+# Veja .env.production.example para as variáveis esperadas.
+
+services:
+
+  # Em produção só o gateway é entrada pública. Os serviços de domínio não
+  # publicam portas no host — ficam acessíveis apenas pela rede interna.
+
+  gateway:
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
+    restart: always
+
+  administrativo:
+    restart: always
+
+  agendamento:
+    restart: always
+
+  atendimento:
+    restart: always

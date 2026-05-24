@@ -1,0 +1,38 @@
+# ─── Overlay opcional: ferramentas de visualização ──────────────────────────
+# Adiciona o Dozzle (https://dozzle.dev), uma UI web para acompanhar
+# containers + logs em tempo real. Útil para apresentações e demonstrações.
+#
+# Uso (combina com o overlay do ambiente):
+#   docker compose --env-file .env.homologation \
+#     -f docker-compose.yml \
+#     -f docker-compose.homologation.yml \
+#     -f docker-compose.tools.yml \
+#     up -d
+#
+# Acesso:
+#   http://localhost:${DOZZLE_HOST_PORT:-9999}
+#
+# Segurança:
+#   - O Dozzle monta o docker.sock em modo READ-ONLY (:ro). Não dá pra
+#     iniciar/parar/destruir containers pela UI.
+#   - O DOZZLE_FILTER restringe a UI aos containers do projeto Compose
+#     atual (COMPOSE_PROJECT_NAME), então outros containers do seu host
+#     não aparecem para a banca.
+#   - NÃO use este overlay em produção exposta sem auth/proxy reverso.
+
+services:
+
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    ports:
+      - "${DOZZLE_HOST_PORT:-9999}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      DOZZLE_LEVEL: info
+      DOZZLE_TAILSIZE: "300"
+      DOZZLE_NO_ANALYTICS: "true"
+      # Filtra a UI apenas para containers deste projeto Compose.
+      DOZZLE_FILTER: "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME:-clinica-homologation}"
+    networks: [clinica-net]

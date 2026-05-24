@@ -131,6 +131,28 @@
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>${jacoco.version}</version>
+        <configuration>
+          <!-- Glue code do Spring (configs, application main, DTOs, entities)
+               não tem lógica testável e infla cobertura artificialmente. -->
+          <excludes>
+            <exclude>**/*Application.class</exclude>
+            <exclude>**/config/**</exclude>
+            <exclude>**/dto/**</exclude>
+            <exclude>**/entity/**</exclude>
+            <exclude>**/*Entity.class</exclude>
+            <exclude>**/*Request.class</exclude>
+            <exclude>**/*Response.class</exclude>
+            <exclude>**/*Repository.class</exclude>
+            <exclude>**/CommonsAutoConfiguration.class</exclude>
+            <!-- Configs e Feign clients (interfaces sem corpo) -->
+            <exclude>**/*SecurityConfig.class</exclude>
+            <exclude>**/*FeignConfig.class</exclude>
+            <exclude>**/client/**</exclude>
+            <!-- JwtAuthFilter servlet (Spring Security glue).
+                 NÃO inclui JwtAuthenticationFilter do gateway (WebFlux, testado). -->
+            <exclude>**/JwtAuthFilter.class</exclude>
+          </excludes>
+        </configuration>
         <executions>
           <execution>
             <id>prepare-agent</id>

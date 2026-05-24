@@ -310,15 +310,41 @@ Pontos importantes:
 - Repos públicos no Codecov **não precisam** de `token`. Em repo privado, configurar `CODECOV_TOKEN` em `Settings → Secrets`.
 - `commons` e `gateway` não têm testes, então não geram `jacoco.xml`. Codecov mostra esses módulos como 0% se você quiser que apareçam — basta adicionar pelo menos 1 teste em cada.
 
-### Cobertura atual (referência)
+### Cobertura atual (atualizada após PASSO 17 — testes ampliados)
 
-| Módulo | Linhas instrumentadas | Cobertas | % |
-|---|---|---|---|
-| `administrativo` | 244 | 38 | 15.6% |
-| `agendamento` | 139 | 52 | 37.4% |
-| `atendimento` | 132 | 41 | 31.1% |
-| `commons` | — (sem testes) | — | — |
-| `gateway` | — (sem testes) | — | — |
+| Módulo | Linhas instrumentadas | Cobertas | % | Testes |
+|---|---|---|---|---|
+| `commons` | 32 | 30 | **93.8%** | 7 |
+| `gateway` | 38 | 38 | **100.0%** | 12 |
+| `administrativo` | 210 | 112 | **53.3%** | 26 |
+| `agendamento` | 88 | 69 | **78.4%** | 16 |
+| `atendimento` | 70 | 57 | **81.4%** | 15 |
+
+**Total: 76 testes** (de 32 anteriores). Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
+
+### Exclusions do JaCoCo (por que e quais)
+
+Glue code do Spring não tem lógica testável e infla cobertura artificialmente. Excluímos do cálculo:
+
+```xml
+<excludes>
+  <exclude>**/*Application.class</exclude>           <!-- main() do Spring Boot -->
+  <exclude>**/config/**</exclude>                    <!-- @Configuration -->
+  <exclude>**/dto/**</exclude>                       <!-- request/response records -->
+  <exclude>**/entity/**</exclude>                    <!-- JPA entities (Lombok) -->
+  <exclude>**/*Entity.class</exclude>
+  <exclude>**/*Request.class</exclude>
+  <exclude>**/*Response.class</exclude>
+  <exclude>**/*Repository.class</exclude>            <!-- Spring Data interfaces -->
+  <exclude>**/CommonsAutoConfiguration.class</exclude>
+  <exclude>**/*SecurityConfig.class</exclude>
+  <exclude>**/*FeignConfig.class</exclude>
+  <exclude>**/client/**</exclude>                    <!-- interfaces Feign -->
+  <exclude>**/JwtAuthFilter.class</exclude>          <!-- servlet glue (não o WebFlux do gateway) -->
+</excludes>
+```
+
+Note que `JwtAuthenticationFilter` do gateway (WebFlux) **não** está excluído — esse tem lógica real e está coberto a 100%.
 
 ### Ponto de controle
 

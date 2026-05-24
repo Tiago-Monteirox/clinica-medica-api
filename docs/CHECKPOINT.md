@@ -542,6 +542,169 @@ DoD do doc 14: itens 1-8 cumpridos.
 
 ---
 
+## PASSO 14.2 — Production com 3 MySQLs reais (concluído em 2026-05-24)
+
+Substitui os placeholders `db-*.internal` do `.env.production.example` por containers MySQL reais, implementando **database-per-service literal**.
+
+**Arquivos criados/alterados:**
+
+```
+sql/init-administrativo.sql           # novo: DB + svc_administrativo + DDL
+sql/init-agendamento.sql              # novo: DB + svc_agendamento + DDL
+sql/init-atendimento.sql              # novo: DB + svc_atendimento + DDL
+docker-compose.production.yml         # 3 containers MySQL: db-administrativo (3308),
+                                      # db-agendamento (3309), db-atendimento (3310)
+                                      # + volumes separados + healthchecks
+.env.production.example               # senhas fixas didáticas + JWT gerado por openssl
+                                      # + URLs JDBC com allowPublicKeyRetrieval=true
+                                      # + GATEWAY_HOST_PORT=8085 (8080 ocupada)
+docs/14-CONTEINERIZACAO-AMBIENTES.md  # tabela de containers, segredos por ambiente,
+                                      # troubleshooting Public Key Retrieval
+```
+
+**Senhas didáticas (commitadas no `.env.production.example`):**
+
+- `svc_administrativo` → `clinica_administrativo_prod_2026`
+- `svc_agendamento` → `clinica_agendamento_prod_2026`
+- `svc_atendimento` → `clinica_atendimento_prod_2026`
+- `JWT_SECRET` gerado com `openssl rand -base64 64 | tr -d '\n'`
+
+**Validação:**
+
+- `docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.production.yml up --build -d` sobe 3 DBs healthy + 4 services UP
+- `BASE_URL=http://localhost:8085 ADMIN_PASSWORD=admin123 ./scripts/smoke-production.sh` → 5/5 OK
+
+**Bug corrigido durante validação:**
+
+URLs JDBC sem `allowPublicKeyRetrieval=true` falham em MySQL 8 com `caching_sha2_password` quando o user tem senha e `useSSL=false`. Em hom não acontece porque root é vazio.
+
+---
+
+## PASSO 15 — CI/CD + JaCoCo + Codecov + LICENSE (concluído em 2026-05-24)
+
+Pipeline completo no `.github/workflows/ci.yml` com 5 jobs em série (`test` → `build` → `docker` matrix → `smoke`) + integração Codecov.
+
+**Arquivos criados/alterados:**
+
+```
+pom.xml                                # jacoco-maven-plugin 0.8.12 em <build><plugins>
+                                       # com prepare-agent + report (phase=test)
+.github/workflows/ci.yml               # job test agora inclui upload Codecov via
+                                       # codecov/codecov-action@v4 (sem token; repo público)
+.github/scripts/ci-smoke-test.sh       # wrapper criado pelo Codex
+scripts/ci-smoke-test.sh               # smoke test que roda no job smoke do CI
+LICENSE                                # MIT 2026 Tiago Monteiro
+docs/15-CICD-GITHUB-ACTIONS.md         # PASSO C4 (JaCoCo) e C5 (badges) reescritos
+                                       # com implementação real e snippets executáveis
+README.md                              # 6 badges: CI, Codecov, Java 21, Spring Boot 3.3.5,
+                                       # Docker Compose ready, MIT
+```
+
+**Cobertura inicial reportada (linhas):**
+
+| Módulo | Cobertas / Total | % |
+|---|---|---|
+| `administrativo` | 38 / 244 | 15.6 |
+| `agendamento` | 52 / 139 | 37.4 |
+| `atendimento` | 41 / 132 | 31.1 |
+| `commons`, `gateway` | sem testes | — |
+
+**Bugs corrigidos no CI durante a implementação:**
+
+1. `.env.homologation.example` / `docker-compose.homologation.yml` / `scripts/ci-smoke-test.sh` estavam untracked — adicionados na Fase 1 antes do CI passar.
+2. `openssl rand -base64 64` gera saída multi-linha; `sed` falhava com `unterminated 's' command`. Fix: `| tr -d '\n'`.
+3. `Wait for gateway` esperava só o gateway responder; admin ainda em bootstrap → login 500. Fix: probe que faz `POST /auth/login` com creds bobas e espera `401/422`.
+4. `.github/workflows/pr.yml` era arquivo de 0 bytes que falhava em todo push — removido.
+
+---
+
+## PASSO 16 — Logging com SLF4J + Lombok (concluído em 2026-05-24)
+
+Padronização do logging em todos os módulos com `@Slf4j` (Lombok), eliminando boilerplate de `LoggerFactory.getLogger(...)` e adicionando logging onde faltava.
+
+**Classes refatoradas (boilerplate → `@Slf4j`):**
+
+- `commons/GlobalExceptionHandler`
+- `gateway/JwtAuthenticationFilter`
+- `agendamento/AgendamentoService`
+- `atendimento/AtendimentoService`
+
+**Classes com `@Slf4j` + logs adicionados:**
+
+- `administrativo/AdministrativoApplication.seedAdmin`
+- `administrativo/auth/AuthService` (login + register)
+- `administrativo/auth/JwtAuthFilter`
+- `administrativo/convenio/ConvenioService`
+- `administrativo/medico/MedicoService`
+- `administrativo/paciente/PacienteService`
+
+**Cobertura ampliada nas 4 classes que já logavam:**
+
+- `AgendamentoService` — warns em conflito de horário, validação Feign falhando, tentativa de update em status terminal
+- `AtendimentoService` — warns em duplicado, status inválido, agendamento ausente
+- `GlobalExceptionHandler` — warns em handleFeignIntegration, handleAccessDenied, handleNoCredentials
+
+**Configuração em cada `application.yml`:**
+
+```yaml
+logging:
+  level:
+    br.edu.imepac: ${LOG_LEVEL_APP:INFO}
+```
+
+Default: `INFO`. Override em homologation: `LOG_LEVEL_APP=DEBUG` no `.env.homologation`.
+
+**Convenções (doc 18):**
+
+- `info` em entry/exit de operações de negócio
+- `warn` em cada validação que falha (login errado, conflito, duplicidade)
+- `error` reservado para `handleGeneral` (exceção não tratada)
+- `debug` para detalhes internos (filtro JWT rejeitando token)
+- Placeholders `{}` do SLF4J sempre; mensagens em PT-BR
+- Pattern do log: default do Spring Boot (sem MDC/JSON nesta etapa)
+
+**Novo doc:** [`docs/18-LOGGING.md`](18-LOGGING.md).
+
+**Validação:** `mvn test` passa 32 testes com novos logs aparecendo; smoke production 5/5 OK; logs verificados (`INFO Tentativa de login para probe@p.com` → `WARN Login falhou: e-mail probe@p.com não cadastrado` → `INFO Login OK: usuário id=1`).
+
+---
+
+## PASSO 17 — Cobertura ampliada (concluído em 2026-05-24)
+
+Subiu cobertura de testes em todos os 5 módulos, partindo do baseline `15/37/31/0/0%` para os números abaixo. 44 testes novos (32 → 76 total).
+
+| Módulo | Antes | Depois | Δ | Testes adicionados |
+|---|---|---|---|---|
+| `commons` | 0% | **93.8%** | +93.8 | `GlobalExceptionHandlerTest` (7 testes) |
+| `gateway` | 0% | **100.0%** | +100.0 | `JwtUtilTest` (5) + `JwtAuthenticationFilterTest` (7) |
+| `administrativo` | 15.6% | **53.3%** | +37.7 | `AuthServiceTest` (5) + `JwtServiceTest` (3) |
+| `agendamento` | 37.4% | **78.4%** | +41.0 | `AgendamentoControllerTest` (10) com `@WebMvcTest` |
+| `atendimento` | 31.1% | **81.4%** | +50.3 | `AtendimentoControllerTest` (10) com `@WebMvcTest` |
+
+**Decisão de arquitetura de testes:**
+
+- Services: unit puro com Mockito (`@ExtendWith(MockitoExtension.class)`)
+- Controllers: `@WebMvcTest` + `@MockBean` (sobe contexto Spring mockado, testa serialização + bean validation)
+- Filter WebFlux do gateway: `MockServerWebExchange` + `MockServerHttpRequest`
+- Handler de exceções: unit puro instanciando a classe e chamando os métodos
+
+**Exclusions do JaCoCo (no `pom.xml`):**
+
+Glue code do Spring sem lógica testável foi excluído do cálculo para que a métrica reflita só o código de negócio:
+
+- `**/*Application.class`, `**/config/**`, `**/dto/**`, `**/entity/**`
+- `**/*Request.class`, `**/*Response.class`, `**/*Entity.class`, `**/*Repository.class`
+- `**/*SecurityConfig.class`, `**/*FeignConfig.class`, `**/client/**`
+- `**/JwtAuthFilter.class` (servlet glue; NÃO o `JwtAuthenticationFilter` do gateway, que é WebFlux com lógica)
+
+Detalhes técnicos completos no [`docs/15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md), seção "Cobertura atual".
+
+---
+
 ## Próximo passo
 
-Implementar o **PASSO 15** seguindo [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md): criar `.github/workflows/ci.yml`, publicar as 4 imagens no GHCR, adicionar JaCoCo + badges.
+Possíveis frentes futuras:
+
+1. **MDC com `X-Request-Id`** para rastrear requisição entre serviços (doc 18, seção "Evoluções futuras").
+2. **Sanity check completo pré-apresentação**: ver [`19-SANITY-CHECK.md`](19-SANITY-CHECK.md).
+3. **Testes de integração com Testcontainers** (já tem a dependência) para subir um MySQL real e testar repositories de ponta a ponta.

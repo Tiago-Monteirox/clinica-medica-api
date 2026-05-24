@@ -100,14 +100,29 @@ jobs:
           sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${jwt}|" .env.ci
       - name: Start stack
         run: docker compose --env-file .env.ci up --build -d
-      - name: Wait for gateway
+      - name: Wait for stack (gateway + administrativo)
         run: |
-          for i in {1..30}; do
-            if curl -sf "${BASE_URL}/actuator/health" > /dev/null; then
-              exit 0
-            fi
-            sleep 2
+          # /actuator/health do gateway sobe rapido e nao prova que o
+          # administrativo esta pronto. Usamos POST /auth/login com creds
+          # bobas: 401/422 = admin respondeu (mesmo recusando). 500/502 =
+          # admin ainda bootando ou DB nao pronto.
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              -X POST "${BASE_URL}/auth/login" \
+              -H "Content-Type: application/json" \
+              -d '{"email":"probe@probe.com","senha":"probe"}' || echo 000)
+            case "${code}" in
+              401|422)
+                echo "OK stack pronta apos ${i} tentativas (HTTP ${code})"
+                exit 0
+                ;;
+              *)
+                echo "  ${i}/60 — admin ainda nao pronto (HTTP ${code})"
+                sleep 2
+                ;;
+            esac
           done
+          echo "TIMEOUT: stack nao subiu em 120s"
           docker compose --env-file .env.ci ps
           exit 1
       - run: bash scripts/ci-smoke-test.sh

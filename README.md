@@ -232,14 +232,6 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 
 ---
 
-## Fluxo recomendado para o aluno
-
-1. Ler [`docs/00-VISAO-GERAL.md`](docs/00-VISAO-GERAL.md) e [`docs/01-ARQUITETURA.md`](docs/01-ARQUITETURA.md) (≈30 min).
-2. Seguir o [`docs/02-ROTEIRO.md`](docs/02-ROTEIRO.md) fase por fase, consultando o doc específico de cada módulo conforme aparece.
-3. Usar [`docs/12-TECNOLOGIAS.md`](docs/12-TECNOLOGIAS.md) como referência sempre que aparecer uma dependência ou anotação que não conhece.
-
----
-
 ## Estado atual do código
 
 ### Progresso

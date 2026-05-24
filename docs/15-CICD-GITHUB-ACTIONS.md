@@ -243,56 +243,113 @@ Job extra no `ci.yml`, condicional a push em `main`:
 
 ---
 
-## PASSO C4 — Cobertura com JaCoCo (opcional, mas recomendado)
+## PASSO C4 — Cobertura com JaCoCo + Codecov
 
 ### Objetivo
 
-Mostrar percentual de cobertura nos testes unitários.
+Medir cobertura de linhas dos testes unitários em todos os módulos e publicar o número via Codecov, com badge atualizando automaticamente no README a cada push.
 
-### O que fazer
+### Implementação no `pom.xml` raiz
 
-1. Adicionar o plugin JaCoCo no `<pluginManagement>` do `pom.xml` raiz.
-2. Vincular execuções nos `prepare-agent` e `report` do ciclo de testes.
-3. No workflow, após `mvn test`, fazer upload do `target/site/jacoco/jacoco.xml`.
-4. (Opcional) Integrar com Codecov ou similar.
+Property:
 
-### Esqueleto do step
+```xml
+<jacoco.version>0.8.12</jacoco.version>
+```
+
+Bloco `<build><plugins>` (FORA do `<pluginManagement>`, para ser aplicado automaticamente em todos os módulos):
+
+```xml
+<build>
+  <pluginManagement> ... </pluginManagement>
+
+  <plugins>
+    <plugin>
+      <groupId>org.jacoco</groupId>
+      <artifactId>jacoco-maven-plugin</artifactId>
+      <version>${jacoco.version}</version>
+      <executions>
+        <execution>
+          <id>prepare-agent</id>
+          <goals><goal>prepare-agent</goal></goals>
+        </execution>
+        <execution>
+          <id>report</id>
+          <phase>test</phase>
+          <goals><goal>report</goal></goals>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
+</build>
+```
+
+Por que `<phase>test</phase>` no `report`: por default o `report` roda em `verify`. Como o nosso CI usa `mvn test` (não `mvn verify`), antecipamos para que o XML exista quando o step de upload rodar.
+
+### Upload pra Codecov no `ci.yml`
+
+Step adicionado no job `test`, depois do `mvn -B test`:
 
 ```yaml
-      - run: mvn -B verify
-      - uses: codecov/codecov-action@v4
-        if: success()
-        with:
-          files: '**/target/site/jacoco/jacoco.xml'
-          token: ${{ secrets.CODECOV_TOKEN }}
+- name: Upload coverage to Codecov
+  if: always()
+  uses: codecov/codecov-action@v4
+  with:
+    files: >-
+      administrativo/target/site/jacoco/jacoco.xml,
+      agendamento/target/site/jacoco/jacoco.xml,
+      atendimento/target/site/jacoco/jacoco.xml
+    fail_ci_if_error: false
+    verbose: true
 ```
+
+Pontos importantes:
+
+- `if: always()` — mesmo se o `mvn test` falhar, sobe parcial pra não perder métrica.
+- `fail_ci_if_error: false` — falha de upload não derruba o CI (o Codecov às vezes tem hiccup).
+- Repos públicos no Codecov **não precisam** de `token`. Em repo privado, configurar `CODECOV_TOKEN` em `Settings → Secrets`.
+- `commons` e `gateway` não têm testes, então não geram `jacoco.xml`. Codecov mostra esses módulos como 0% se você quiser que apareçam — basta adicionar pelo menos 1 teste em cada.
+
+### Cobertura atual (referência)
+
+| Módulo | Linhas instrumentadas | Cobertas | % |
+|---|---|---|---|
+| `administrativo` | 244 | 38 | 15.6% |
+| `agendamento` | 139 | 52 | 37.4% |
+| `atendimento` | 132 | 41 | 31.1% |
+| `commons` | — (sem testes) | — | — |
+| `gateway` | — (sem testes) | — | — |
 
 ### Ponto de controle
 
-- [ ] `mvn verify` gera relatório JaCoCo em cada módulo.
-- [ ] Workflow upload do XML.
-- [ ] Badge de cobertura aparece no README.
+- [x] `mvn test` gera `target/site/jacoco/jacoco.xml` em cada módulo testado.
+- [x] Workflow faz upload pra Codecov.
+- [x] Badge de cobertura aparece no README.
 
 ---
 
 ## PASSO C5 — Badges no README
 
-### Badges sugeridas
+### Badges configurados
 
-| Badge | URL |
+| Badge | Markdown |
 |---|---|
-| CI status | `https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml/badge.svg` |
-| Cobertura (se integrar Codecov) | `https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api/branch/main/graph/badge.svg` |
-| Last release | gerado pelo GitHub Releases |
+| CI | `[![CI](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml)` |
+| Codecov | `[![codecov](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api/branch/main/graph/badge.svg)](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api)` |
+| Java | `![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)` |
+| Spring Boot | `![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?logo=springboot)` |
+| License | `[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)` |
+| Docker Compose | `![Docker Compose](https://img.shields.io/badge/Docker%20Compose-ready-2496ED?logo=docker)` |
 
 ### Onde colocar
 
-No topo do `README.md`, abaixo do título.
+Logo abaixo do título do `README.md`, em uma única linha (badges renderizam in-line).
 
 ### Ponto de controle
 
-- [ ] Badge de CI aparece verde no README após o primeiro push em `main`.
-- [ ] Link da badge leva para a aba **Actions**.
+- [x] Badge de CI aparece verde no README após o push em `main`.
+- [x] Badge de Codecov mostra o número agregado de cobertura.
+- [x] Badges estáticos (Java/Spring Boot/License/Docker Compose) carregam via shields.io.
 
 ---
 

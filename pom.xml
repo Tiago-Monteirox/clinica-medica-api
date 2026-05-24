@@ -15,6 +15,7 @@
     <springdoc.version>2.6.0</springdoc.version>
     <logbook.version>3.9.0</logbook.version>
     <testcontainers.version>1.20.4</testcontainers.version>
+    <jacoco.version>0.8.12</jacoco.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -123,6 +124,30 @@
         </plugin>
       </plugins>
     </pluginManagement>
+    <!-- Plugins aplicados a todos os módulos automaticamente -->
+    <plugins>
+      <!-- JaCoCo: instrumenta as classes para coletar cobertura durante mvn test -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
   <modules>
     <module>administrativo</module>

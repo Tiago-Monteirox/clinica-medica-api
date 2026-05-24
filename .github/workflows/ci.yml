@@ -111,5 +111,14 @@ jobs:
           docker compose --env-file .env.ci ps
           exit 1
       - run: bash scripts/ci-smoke-test.sh
+      - name: Dump container logs on failure
+        if: failure()
+        run: |
+          echo "===== docker compose ps ====="
+          docker compose --env-file .env.ci ps
+          for svc in administrativo agendamento atendimento gateway mysql; do
+            echo "===== logs: ${svc} ====="
+            docker compose --env-file .env.ci logs --tail=100 ${svc} || true
+          done
       - if: always()
         run: docker compose --env-file .env.ci down -v

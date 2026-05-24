@@ -48,3 +48,11 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+
+
+# ── Logging (SLF4J + Logback default do Spring Boot) ────────
+# Pacote da aplicação em INFO; demais frameworks usam nível default.
+# Para debug local, suba para DEBUG via env var: LOGGING_LEVEL_BR_EDU_IMEPAC=DEBUG
+logging:
+  level:
+    br.edu.imepac: ${LOG_LEVEL_APP:INFO}

@@ -6,19 +6,17 @@ import br.edu.imepac.atendimento.atendimento.dto.AtendimentoUpdateRequest;
 import br.edu.imepac.atendimento.client.AgendamentoClient;
 import br.edu.imepac.commons.exceptions.BusinessException;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @Transactional
 public class AtendimentoService {
-
-    private static final Logger log = LoggerFactory.getLogger(AtendimentoService.class);
 
     private final AtendimentoRepository repository;
     private final AgendamentoClient agendamentoClient;
@@ -29,18 +27,23 @@ public class AtendimentoService {
     }
 
     public AtendimentoResponse registrar(AtendimentoRequest req) {
+        log.info("Registrando atendimento para agendamento={}", req.getAgendamentoId());
+
         if (repository.existsByAgendamentoId(req.getAgendamentoId())) {
+            log.warn("Atendimento duplicado para agendamento={}", req.getAgendamentoId());
             throw new BusinessException("Já existe atendimento para este agendamento");
         }
 
         var envelope = agendamentoClient.buscar(req.getAgendamentoId());
         if (envelope == null || envelope.getData() == null) {
+            log.warn("Agendamento {} não encontrado no serviço de agendamento", req.getAgendamentoId());
             throw new EntityNotFoundException("Agendamento com id " + req.getAgendamentoId() + " não encontrado");
         }
         var snapshot = envelope.getData();
 
         String status = snapshot.status();
         if (!"AGENDADO".equals(status) && !"CONFIRMADO".equals(status)) {
+            log.warn("Tentativa de atendimento em agendamento {} com status inválido: {}", req.getAgendamentoId(), status);
             throw new BusinessException("Agendamento em status inválido para atendimento: " + status);
         }
 
@@ -54,7 +57,8 @@ public class AtendimentoService {
                 .observacoes(req.getObservacoes())
                 .build();
         var saved = repository.save(entity);
-        log.info("Atendimento {} registrado (agendamento={})", saved.getId(), saved.getAgendamentoId());
+        log.info("Atendimento {} registrado (agendamento={}, paciente={}, médico={})",
+                saved.getId(), saved.getAgendamentoId(), saved.getPacienteId(), saved.getMedicoId());
         return toResponse(saved);
     }
 

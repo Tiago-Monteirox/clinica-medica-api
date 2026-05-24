@@ -7,19 +7,18 @@ import br.edu.imepac.agendamento.agendamento.enums.StatusAgendamento;
 import br.edu.imepac.agendamento.client.AdministrativoClient;
 import br.edu.imepac.commons.exceptions.BusinessException;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @Transactional
 public class AgendamentoService {
 
-    private static final Logger log = LoggerFactory.getLogger(AgendamentoService.class);
     private static final List<StatusAgendamento> ATIVOS =
             List.of(StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO);
 
@@ -33,6 +32,9 @@ public class AgendamentoService {
     }
 
     public AgendamentoResponse criar(AgendamentoRequest req) {
+        log.info("Criando agendamento para paciente={} médico={} dataHora={}",
+                req.getPacienteId(), req.getMedicoId(), req.getDataHora());
+
         validarPacienteExiste(req.getPacienteId());
         validarMedicoExiste(req.getMedicoId());
         validarHorarioLivre(req.getMedicoId(), req.getDataHora());
@@ -45,7 +47,7 @@ public class AgendamentoService {
                 .status(StatusAgendamento.AGENDADO)
                 .build();
         AgendamentoEntity saved = repository.save(entity);
-        log.info("Agendamento {} criado para paciente {} com médico {}",
+        log.info("Agendamento {} criado (paciente={}, médico={})",
                 saved.getId(), saved.getPacienteId(), saved.getMedicoId());
         return toResponse(saved);
     }
@@ -74,6 +76,7 @@ public class AgendamentoService {
         AgendamentoEntity entity = findEntity(id);
         if (entity.getStatus() == StatusAgendamento.REALIZADO
                 || entity.getStatus() == StatusAgendamento.CANCELADO) {
+            log.warn("Tentativa de atualizar agendamento {} com status terminal {}", id, entity.getStatus());
             throw new BusinessException("Agendamento " + entity.getStatus() + " não pode ser alterado");
         }
         if (req.getDataHora() != null) {
@@ -82,32 +85,38 @@ public class AgendamentoService {
         }
         if (req.getStatus() != null) entity.setStatus(req.getStatus());
         if (req.getObservacoes() != null) entity.setObservacoes(req.getObservacoes());
+        log.info("Agendamento {} atualizado", id);
         return toResponse(repository.save(entity));
     }
 
     public void cancelar(Long id) {
         AgendamentoEntity entity = findEntity(id);
         if (entity.getStatus() == StatusAgendamento.REALIZADO) {
+            log.warn("Tentativa de cancelar agendamento {} já REALIZADO", id);
             throw new BusinessException("Agendamento já realizado não pode ser cancelado");
         }
         entity.setStatus(StatusAgendamento.CANCELADO);
         repository.save(entity);
+        log.info("Agendamento {} cancelado", id);
     }
 
     private void validarPacienteExiste(Long id) {
         if (!administrativoClient.pacienteExiste(id).exists()) {
+            log.warn("Validação Feign: paciente {} não existe no administrativo", id);
             throw new EntityNotFoundException("Paciente com id " + id + " não encontrado");
         }
     }
 
     private void validarMedicoExiste(Long id) {
         if (!administrativoClient.medicoExiste(id).exists()) {
+            log.warn("Validação Feign: médico {} não existe no administrativo", id);
             throw new EntityNotFoundException("Médico com id " + id + " não encontrado");
         }
     }
 
     private void validarHorarioLivre(Long medicoId, LocalDateTime dataHora) {
         if (repository.existsByMedicoIdAndDataHoraAndStatusIn(medicoId, dataHora, ATIVOS)) {
+            log.warn("Conflito de horário: médico {} já tem agendamento em {}", medicoId, dataHora);
             throw new BusinessException("Médico já tem agendamento ativo nesse horário");
         }
     }

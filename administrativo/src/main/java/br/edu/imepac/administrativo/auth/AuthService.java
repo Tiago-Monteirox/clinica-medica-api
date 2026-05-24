@@ -5,9 +5,11 @@ import br.edu.imepac.administrativo.auth.dto.LoginResponse;
 import br.edu.imepac.administrativo.auth.dto.RegisterRequest;
 import br.edu.imepac.administrativo.auth.dto.UsuarioResponse;
 import br.edu.imepac.commons.exceptions.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -24,22 +26,33 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        log.info("Tentativa de login para {}", request.email());
+
         UsuarioEntity user = usuarioRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BusinessException("Credenciais inválidas"));
+                .orElseThrow(() -> {
+                    log.warn("Login falhou: e-mail {} não cadastrado", request.email());
+                    return new BusinessException("Credenciais inválidas");
+                });
 
         if (!passwordEncoder.matches(request.senha(), user.getSenhaHash())) {
+            log.warn("Login falhou: senha incorreta para {}", request.email());
             throw new BusinessException("Credenciais inválidas");
         }
 
         String token = jwtService.generate(user);
         long expiresInSeconds = jwtService.getExpirationMillis() / 1000;
+        log.info("Login OK: usuário id={} role={}", user.getId(), user.getRole());
 
         return new LoginResponse(token, expiresInSeconds, user.getEmail(), user.getRole());
     }
 
     public UsuarioResponse register(RegisterRequest request) {
-        if (usuarioRepository.existsByEmail(request.email()))
+        log.info("Registrando novo usuário: email={} role={}", request.email(), request.role());
+
+        if (usuarioRepository.existsByEmail(request.email())) {
+            log.warn("Registro recusado: e-mail {} já cadastrado", request.email());
             throw new BusinessException("E-mail já cadastrado");
+        }
 
         UsuarioEntity user = UsuarioEntity.builder()
                 .nome(request.nome())
@@ -49,6 +62,7 @@ public class AuthService {
                 .build();
 
         UsuarioEntity saved = usuarioRepository.save(user);
+        log.info("Usuário {} registrado (id={})", saved.getEmail(), saved.getId());
         return new UsuarioResponse(saved.getId(), saved.getNome(), saved.getEmail(), saved.getRole());
     }
 }

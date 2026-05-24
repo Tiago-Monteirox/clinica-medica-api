@@ -94,7 +94,10 @@ jobs:
         run: |
           cp .env.homologation.example .env.ci
           sed -i "s|^COMPOSE_PROJECT_NAME=.*|COMPOSE_PROJECT_NAME=clinica-ci-${GITHUB_RUN_ID}|" .env.ci
-          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 64)|" .env.ci
+          # -A: one-line output. Sem -A, openssl quebra base64 em 2 linhas
+          # (newline aos 76 chars) e o sed falha com "unterminated 's' command".
+          jwt=$(openssl rand -base64 -A 64)
+          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${jwt}|" .env.ci
       - name: Start stack
         run: docker compose --env-file .env.ci up --build -d
       - name: Wait for gateway

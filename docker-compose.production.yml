@@ -1,27 +1,109 @@
 # ─── Overlay PRODUCTION ─────────────────────────────────────────────────────
-# Não sobe MySQL local. Cada microsserviço recebe a URL JDBC do seu banco
-# externo (DBaaS, RDS, Cloud SQL, etc.) e credenciais próprias por serviço.
+# Topologia database-per-service real: 1 MySQL dedicado por microsserviço.
+#   - db-administrativo  → host:3308, schema clinica_administrativo
+#   - db-agendamento     → host:3309, schema clinica_agendamento
+#   - db-atendimento     → host:3310, schema clinica_atendimento
+# Cada serviço Java conecta no SEU banco usando um usuário próprio (svc_*)
+# com privilégio restrito ao seu schema (princípio do menor privilégio).
+#
 # Uso:
 #   docker compose --env-file .env.production \
 #     -f docker-compose.yml -f docker-compose.production.yml \
 #     up --build -d
-# Veja .env.production.example para as variáveis esperadas.
+#
+# Variáveis: ver .env.production.example.
 
 services:
 
-  # Em produção só o gateway é entrada pública. Os serviços de domínio não
-  # publicam portas no host — ficam acessíveis apenas pela rede interna.
+  # ── Bancos: um por serviço ────────────────────────────────────────────────
 
-  gateway:
-    ports:
-      - "${GATEWAY_HOST_PORT:-8080}:8080"
+  db-administrativo:
+    image: mysql:8.3
     restart: always
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "${ADMIN_DB_HOST_PORT:-3308}:3306"
+    volumes:
+      - db_administrativo_data:/var/lib/mysql
+      - ./sql/init-administrativo.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [clinica-net]
+
+  db-agendamento:
+    image: mysql:8.3
+    restart: always
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "${AGENDAMENTO_DB_HOST_PORT:-3309}:3306"
+    volumes:
+      - db_agendamento_data:/var/lib/mysql
+      - ./sql/init-agendamento.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [clinica-net]
+
+  db-atendimento:
+    image: mysql:8.3
+    restart: always
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "${ATENDIMENTO_DB_HOST_PORT:-3310}:3306"
+    volumes:
+      - db_atendimento_data:/var/lib/mysql
+      - ./sql/init-atendimento.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [clinica-net]
+
+  # ── Aplicação: cada serviço espera SEU banco saudável ────────────────────
 
   administrativo:
     restart: always
+    depends_on:
+      db-administrativo:
+        condition: service_healthy
 
   agendamento:
     restart: always
+    depends_on:
+      db-agendamento:
+        condition: service_healthy
+      administrativo:
+        condition: service_started
 
   atendimento:
     restart: always
+    depends_on:
+      db-atendimento:
+        condition: service_healthy
+      agendamento:
+        condition: service_started
+
+  gateway:
+    restart: always
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
+
+volumes:
+  db_administrativo_data:
+  db_agendamento_data:
+  db_atendimento_data:

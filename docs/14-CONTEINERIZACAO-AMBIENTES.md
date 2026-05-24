@@ -67,20 +67,20 @@ gateway :8084 no host / :8080 no container
 
 ### Production
 
-O ambiente `production` mantém os mesmos containers da aplicação, mas não sobe MySQL local.
+O ambiente `production` sobe **3 MySQLs dedicados** (um por microsserviço), implementando database-per-service real. Cada serviço Java conecta no seu próprio container de banco usando um usuário `svc_*` com privilégio restrito ao seu schema.
 
 ```text
 cliente / frontend
         |
         v
-gateway
+gateway :8080 (8085 nesta máquina por conflito com wordpress local)
         |
-        +--> administrativo --> DB externo administrativo
-        +--> agendamento ----> DB externo agendamento
-        +--> atendimento ----> DB externo atendimento
+        +--> administrativo --> db-administrativo :3306 (host:3308)
+        +--> agendamento ----> db-agendamento    :3306 (host:3309)
+        +--> atendimento ----> db-atendimento    :3306 (host:3310)
 ```
 
-**Uso:** representação da arquitetura final com database-per-service completo.
+**Uso:** representação da arquitetura final com database-per-service literal. Cada banco roda em container próprio, com volume próprio, init script próprio e usuário próprio — o que permite, na vida real, trocar cada `db-*` por uma instância gerenciada (RDS, Cloud SQL, DBaaS) sem mudar o código do serviço.
 
 ---
 
@@ -186,30 +186,42 @@ Variáveis esperadas:
 
 ### Production
 
-Criar `.env.production.example` sem credenciais reais.
+Criar `.env.production.example` com as variáveis dos 3 bancos dedicados. Neste trabalho integrador as senhas são fixas e legíveis (`clinica_<servico>_prod_2026`), commitadas no `.example` por decisão didática. Em produção real, viriam de um secret manager.
 
 Variáveis esperadas:
 
-| Variável | Exemplo |
+| Variável | Valor / Exemplo |
 |---|---|
 | `COMPOSE_PROJECT_NAME` | `clinica-production` |
-| `GATEWAY_HOST_PORT` | `8080` |
-| `JWT_SECRET` | preencher fora do Git |
-| `ADMIN_DB_URL` | JDBC do banco externo administrativo |
-| `ADMIN_DB_USER` | usuário do banco administrativo |
-| `ADMIN_DB_PASSWORD` | senha fora do Git |
-| `AGENDAMENTO_DB_URL` | JDBC do banco externo agendamento |
-| `AGENDAMENTO_DB_USER` | usuário do banco agendamento |
-| `AGENDAMENTO_DB_PASSWORD` | senha fora do Git |
-| `ATENDIMENTO_DB_URL` | JDBC do banco externo atendimento |
-| `ATENDIMENTO_DB_USER` | usuário do banco atendimento |
-| `ATENDIMENTO_DB_PASSWORD` | senha fora do Git |
+| `GATEWAY_HOST_PORT` | `8085` (em prod. real seria `8080` — porta `8080` está ocupada pelo wordpress local) |
+| `ADMIN_DB_HOST_PORT` | `3308` |
+| `AGENDAMENTO_DB_HOST_PORT` | `3309` |
+| `ATENDIMENTO_DB_HOST_PORT` | `3310` |
+| `JWT_SECRET` | gerado com `openssl rand -base64 64 \| tr -d '\n'` |
+| `JPA_SHOW_SQL` | `false` |
+| `ADMIN_DB_URL` | `jdbc:mysql://db-administrativo:3306/clinica_administrativo?...` |
+| `ADMIN_DB_USER` | `svc_administrativo` |
+| `ADMIN_DB_PASSWORD` | `clinica_administrativo_prod_2026` |
+| `AGENDAMENTO_DB_URL` | `jdbc:mysql://db-agendamento:3306/clinica_agendamento?...` |
+| `AGENDAMENTO_DB_USER` | `svc_agendamento` |
+| `AGENDAMENTO_DB_PASSWORD` | `clinica_agendamento_prod_2026` |
+| `ATENDIMENTO_DB_URL` | `jdbc:mysql://db-atendimento:3306/clinica_atendimento?...` |
+| `ATENDIMENTO_DB_USER` | `svc_atendimento` |
+| `ATENDIMENTO_DB_PASSWORD` | `clinica_atendimento_prod_2026` |
+
+**JDBC query string para production:**
+
+```
+?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
+```
+
+`allowPublicKeyRetrieval=true` é obrigatório no MySQL 8 com `caching_sha2_password` quando o usuário tem senha e `useSSL=false`. Sem essa flag, a conexão falha com `Public Key Retrieval is not allowed`.
 
 ### Ponto de controle
 
 - [ ] `.env.homologation.example` criado sem senha sensível real.
-- [ ] `.env.production.example` criado sem senha sensível real.
-- [ ] `.env*` real está ignorado no Git.
+- [ ] `.env.production.example` criado com senhas fixas didáticas.
+- [ ] `.env*` real (sem `.example`) está ignorado no Git.
 - [ ] `JWT_SECRET` fica configurável por ambiente.
 
 ---
@@ -306,23 +318,32 @@ docker compose \
 
 ### Objetivo
 
-Representar produção sem MySQL local.
+Subir database-per-service literal: **3 containers MySQL dedicados**, cada um com seu volume, init script e usuário próprio.
 
 ### Responsabilidades do arquivo
 
-- não declarar serviço `mysql`;
-- configurar URLs JDBC externas;
-- remover dependência de `mysql`;
-- usar porta padrão do Gateway;
-- usar secrets/variáveis reais fora do Git.
+- declarar 3 services MySQL: `db-administrativo`, `db-agendamento`, `db-atendimento`;
+- montar cada init script (`sql/init-<svc>.sql`) no respectivo banco;
+- volume separado por banco (sem compartilhamento);
+- healthcheck (`mysqladmin ping`) em cada banco;
+- `depends_on: condition: service_healthy` dos services Java apontando para o seu banco;
+- gateway publica `GATEWAY_HOST_PORT` no host;
+- demais services NÃO publicam porta (acesso só pela rede interna).
 
-### Bancos externos esperados
+### Bancos por serviço
 
-| Serviço | Banco |
-|---|---|
-| `administrativo` | banco externo administrativo |
-| `agendamento` | banco externo agendamento |
-| `atendimento` | banco externo atendimento |
+| Serviço Java | Container DB | Porta host (debug) | Volume | Init script | Usuário |
+|---|---|---|---|---|---|
+| `administrativo` | `db-administrativo` | `3308` | `db_administrativo_data` | `sql/init-administrativo.sql` | `svc_administrativo` |
+| `agendamento` | `db-agendamento` | `3309` | `db_agendamento_data` | `sql/init-agendamento.sql` | `svc_agendamento` |
+| `atendimento` | `db-atendimento` | `3310` | `db_atendimento_data` | `sql/init-atendimento.sql` | `svc_atendimento` |
+
+Cada init script faz:
+
+1. `CREATE DATABASE IF NOT EXISTS clinica_<svc>`;
+2. `CREATE USER svc_<svc>` com senha fixa do `.env.production.example`;
+3. `GRANT ALL PRIVILEGES ON clinica_<svc>.*` (escopo apenas no seu schema);
+4. DDL das tabelas do módulo.
 
 ### Comando de subida
 
@@ -462,13 +483,18 @@ Verificar:
 - tabela `usuarios`;
 - senha configurada para o usuário.
 
-### Production subiu MySQL por engano
+### Login em production retorna 500 com `Public Key Retrieval is not allowed`
 
-Verificar:
+MySQL 8 usa `caching_sha2_password` por padrão. Quando o usuário tem senha e a conexão é sem SSL, o cliente precisa de autorização explícita para receber a chave pública do servidor.
 
-- se o comando usou `docker-compose.production.yml`;
-- se não foi usado `docker-compose.homologation.yml`;
-- se o arquivo base não contém o serviço `mysql`.
+Sintoma no log do serviço Java:
+
+```
+Caused by: com.mysql.cj.exceptions.UnableToConnectException: Public Key Retrieval is not allowed
+    at com.mysql.cj.protocol.a.authentication.CachingSha2PasswordPlugin.nextAuthenticationStep
+```
+
+Correção: garantir que `?...&allowPublicKeyRetrieval=true&...` esteja na URL JDBC de cada serviço no `.env.production`. Em homologation isso não acontece porque o usuário `root` tem senha vazia e o plugin pula essa etapa.
 
 ### Login retorna 422 "Credenciais inválidas" no primeiro boot do volume novo
 
@@ -500,31 +526,44 @@ Tabela única com tudo o que cada container expõe, depende e consome.
 > Em `homologation` os containers ficam `clinica-homologation-administrativo-1`, etc.
 > Em `production`, `clinica-production-administrativo-1`, etc.
 
-### `mysql` — só existe em homologation
+### `mysql` — só em homologation
 
 | Campo | Valor |
 |---|---|
 | Imagem | `mysql:8.3` |
 | Porta interna | `3306` |
-| Porta no host (hom.) | `${MYSQL_HOST_PORT}` (default `3307`) |
-| Porta no host (prod.) | **não sobe** (banco é externo) |
+| Porta no host | `${MYSQL_HOST_PORT}` (default `3307`) |
 | Volume persistente | `clinica_mysql_data` → `/var/lib/mysql` |
-| Init SQL | `./sql/init.sql` → `/docker-entrypoint-initdb.d/init.sql` (cria 3 schemas + seed) |
+| Init SQL | `./sql/init.sql` (cria 3 schemas no mesmo MySQL) |
 | Healthcheck | `mysqladmin ping` a cada 10s, até 5 tentativas |
-| Env vars | `MYSQL_ALLOW_EMPTY_PASSWORD=yes` (didático; em produção real, NÃO) |
-| Depende de | — |
+| Env vars | `MYSQL_ALLOW_EMPTY_PASSWORD=yes` |
+
+### `db-administrativo`, `db-agendamento`, `db-atendimento` — só em production
+
+Três MySQLs dedicados, um por microsserviço. Mesma imagem e healthcheck, isolados por volume e init script.
+
+| Campo | `db-administrativo` | `db-agendamento` | `db-atendimento` |
+|---|---|---|---|
+| Imagem | `mysql:8.3` | `mysql:8.3` | `mysql:8.3` |
+| Porta interna | `3306` | `3306` | `3306` |
+| Porta no host | `3308` | `3309` | `3310` |
+| Volume | `db_administrativo_data` | `db_agendamento_data` | `db_atendimento_data` |
+| Init SQL | `sql/init-administrativo.sql` | `sql/init-agendamento.sql` | `sql/init-atendimento.sql` |
+| Usuário criado | `svc_administrativo` | `svc_agendamento` | `svc_atendimento` |
+| Schema | `clinica_administrativo` | `clinica_agendamento` | `clinica_atendimento` |
+| Healthcheck | `mysqladmin ping` (10s/5 tentativas) | idem | idem |
 
 ### `administrativo`
 
 | Campo | Valor |
 |---|---|
-| Build | `Dockerfile` com `ARG MODULE=administrativo` (copia o JAR do host) |
+| Build | `Dockerfile` com `ARG MODULE=administrativo` |
 | Porta interna | `8081` |
-| Porta no host (hom.) | `8081` (publicada para Swagger/debug) |
-| Porta no host (prod.) | não publicada (acesso só pela rede interna via gateway) |
+| Porta no host (hom.) | `8081` (Swagger/debug) |
+| Porta no host (prod.) | **não publicada** (acesso só via gateway) |
 | Env vars | `SERVER_PORT`, `SPRING_DATASOURCE_URL` ← `${ADMIN_DB_URL}`, `SPRING_DATASOURCE_USERNAME` ← `${ADMIN_DB_USER}`, `SPRING_DATASOURCE_PASSWORD` ← `${ADMIN_DB_PASSWORD}`, `JWT_SECRET`, `JPA_SHOW_SQL`, `JAVA_OPTS` |
-| Depende de | `mysql` (só em homologation, condition: service_healthy) |
-| Healthcheck | — (Spring Boot Actuator interno responde via gateway) |
+| Depende de (hom.) | `mysql` (healthy) |
+| Depende de (prod.) | `db-administrativo` (healthy) |
 | Swagger | `http://localhost:8081/swagger-ui.html` (só hom.) |
 
 ### `agendamento`
@@ -536,7 +575,8 @@ Tabela única com tudo o que cada container expõe, depende e consome.
 | Porta no host (hom.) | `8082` |
 | Porta no host (prod.) | não publicada |
 | Env vars | `SERVER_PORT`, `SPRING_DATASOURCE_URL` ← `${AGENDAMENTO_DB_URL}`, `SPRING_DATASOURCE_USERNAME` ← `${AGENDAMENTO_DB_USER}`, `SPRING_DATASOURCE_PASSWORD` ← `${AGENDAMENTO_DB_PASSWORD}`, `ADMINISTRATIVO_URL=http://administrativo:8081` (Feign), `JWT_SECRET`, `JPA_SHOW_SQL`, `JAVA_OPTS` |
-| Depende de | `administrativo` (started); `mysql` (healthy, só em hom.) |
+| Depende de (hom.) | `mysql` (healthy), `administrativo` (started) |
+| Depende de (prod.) | `db-agendamento` (healthy), `administrativo` (started) |
 | Swagger | `http://localhost:8082/swagger-ui.html` (só hom.) |
 
 ### `atendimento`
@@ -548,7 +588,8 @@ Tabela única com tudo o que cada container expõe, depende e consome.
 | Porta no host (hom.) | `8083` |
 | Porta no host (prod.) | não publicada |
 | Env vars | `SERVER_PORT`, `SPRING_DATASOURCE_URL` ← `${ATENDIMENTO_DB_URL}`, `SPRING_DATASOURCE_USERNAME` ← `${ATENDIMENTO_DB_USER}`, `SPRING_DATASOURCE_PASSWORD` ← `${ATENDIMENTO_DB_PASSWORD}`, `AGENDAMENTO_URL=http://agendamento:8082` (Feign), `JWT_SECRET`, `JPA_SHOW_SQL`, `JAVA_OPTS` |
-| Depende de | `agendamento` (started); `mysql` (healthy, só em hom.) |
+| Depende de (hom.) | `mysql` (healthy), `agendamento` (started) |
+| Depende de (prod.) | `db-atendimento` (healthy), `agendamento` (started) |
 | Swagger | `http://localhost:8083/swagger-ui.html` (só hom.) |
 
 ### `gateway`
@@ -557,8 +598,8 @@ Tabela única com tudo o que cada container expõe, depende e consome.
 |---|---|
 | Build | `Dockerfile` com `ARG MODULE=gateway` |
 | Porta interna | `8080` |
-| Porta no host (hom.) | `${GATEWAY_HOST_PORT}` (default `8084` — `8080` já é usado por wordpress local) |
-| Porta no host (prod.) | `${GATEWAY_HOST_PORT}` (default `8080`) |
+| Porta no host (hom.) | `${GATEWAY_HOST_PORT}` (default `8084` — `8080` ocupada por wordpress local) |
+| Porta no host (prod.) | `${GATEWAY_HOST_PORT}` (default `8085` neste setup; em prod. real `8080`) |
 | Env vars | `SERVER_PORT=8080`, `ADMINISTRATIVO_URL=http://administrativo:8081`, `AGENDAMENTO_URL=http://agendamento:8082`, `ATENDIMENTO_URL=http://atendimento:8083`, `JWT_SECRET`, `JAVA_OPTS` |
 | Depende de | `administrativo`, `agendamento`, `atendimento` (todos started) |
 | Health público | `http://localhost:${GATEWAY_HOST_PORT}/actuator/health` |
@@ -648,35 +689,38 @@ Comparação direta entre o que cada microsserviço consome em cada ambiente.
 
 | Variável | Homologation | Production |
 |---|---|---|
-| `ADMIN_DB_URL` | `jdbc:mysql://mysql:3306/clinica_administrativo?...&useSSL=false` | `jdbc:mysql://db-administrativo.internal:3306/clinica_administrativo?useSSL=true` |
+| `ADMIN_DB_URL` | `jdbc:mysql://mysql:3306/clinica_administrativo?...&useSSL=false&allowPublicKeyRetrieval=true` | `jdbc:mysql://db-administrativo:3306/clinica_administrativo?useSSL=false&allowPublicKeyRetrieval=true` |
 | `ADMIN_DB_USER` | `root` | `svc_administrativo` (usuário próprio, menor privilégio) |
-| `ADMIN_DB_PASSWORD` | vazio | vem do secret manager — placeholder `CHANGE_ME_FROM_SECRET_MANAGER` no `.env.production.example` |
+| `ADMIN_DB_PASSWORD` | vazio | `clinica_administrativo_prod_2026` (no `.env.production.example` — didático) |
 
 ### `agendamento`
 
 | Variável | Homologation | Production |
 |---|---|---|
-| `AGENDAMENTO_DB_URL` | `jdbc:mysql://mysql:3306/clinica_agendamento?...&useSSL=false` | `jdbc:mysql://db-agendamento.internal:3306/clinica_agendamento?useSSL=true` |
+| `AGENDAMENTO_DB_URL` | `jdbc:mysql://mysql:3306/clinica_agendamento?...&useSSL=false&allowPublicKeyRetrieval=true` | `jdbc:mysql://db-agendamento:3306/clinica_agendamento?useSSL=false&allowPublicKeyRetrieval=true` |
 | `AGENDAMENTO_DB_USER` | `root` | `svc_agendamento` |
-| `AGENDAMENTO_DB_PASSWORD` | vazio | secret manager |
+| `AGENDAMENTO_DB_PASSWORD` | vazio | `clinica_agendamento_prod_2026` |
 
 ### `atendimento`
 
 | Variável | Homologation | Production |
 |---|---|---|
-| `ATENDIMENTO_DB_URL` | `jdbc:mysql://mysql:3306/clinica_atendimento?...&useSSL=false` | `jdbc:mysql://db-atendimento.internal:3306/clinica_atendimento?useSSL=true` |
+| `ATENDIMENTO_DB_URL` | `jdbc:mysql://mysql:3306/clinica_atendimento?...&useSSL=false&allowPublicKeyRetrieval=true` | `jdbc:mysql://db-atendimento:3306/clinica_atendimento?useSSL=false&allowPublicKeyRetrieval=true` |
 | `ATENDIMENTO_DB_USER` | `root` | `svc_atendimento` |
-| `ATENDIMENTO_DB_PASSWORD` | vazio | secret manager |
+| `ATENDIMENTO_DB_PASSWORD` | vazio | `clinica_atendimento_prod_2026` |
 
 ### Comuns (consumidos por todos os 4 serviços + gateway)
 
 | Variável | Homologation | Production |
 |---|---|---|
-| `JWT_SECRET` | `dev-secret-please-change-...` (didático, no `.env.homologation.example`) | **vem do secret manager** — placeholder no `.env.production.example`. NUNCA reutilizar o segredo de homologation |
+| `JWT_SECRET` | `dev-secret-please-change-...` (didático, no `.env.homologation.example`) | gerado com `openssl rand -base64 64 \| tr -d '\n'` e commitado no `.env.production.example` (trabalho escolar — em prod. real seria secret manager) |
 | `JPA_SHOW_SQL` | `true` (debug) | `false` |
-| `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom` | mesmo (pode ajustar `MaxRAMPercentage` por instância) |
-| `GATEWAY_HOST_PORT` | `8084` (8080 já usado por wordpress local) | `8080` (porta padrão pública) |
-| `MYSQL_HOST_PORT` | `3307` | — (não há mysql local) |
+| `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom` | idem |
+| `GATEWAY_HOST_PORT` | `8084` (8080 ocupada por wordpress local) | `8085` (em prod. real seria `8080`) |
+| `MYSQL_HOST_PORT` | `3307` | — (não há mysql único; cada DB tem sua porta) |
+| `ADMIN_DB_HOST_PORT` | — | `3308` |
+| `AGENDAMENTO_DB_HOST_PORT` | — | `3309` |
+| `ATENDIMENTO_DB_HOST_PORT` | — | `3310` |
 | `COMPOSE_PROJECT_NAME` | `clinica-homologation` | `clinica-production` |
 
 ### Visualizar containers em tempo real (apresentação)

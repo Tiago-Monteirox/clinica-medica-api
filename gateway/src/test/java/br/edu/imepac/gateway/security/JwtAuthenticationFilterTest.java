@@ -125,4 +125,48 @@ class JwtAuthenticationFilterTest {
     void getOrderRetornaMenosCem() {
         assertThat(filter.getOrder()).isEqualTo(-100);
     }
+
+    @Test
+    void respostaUnauthorizedTrazHeadersCorsQuandoOriginEstaNaAllowList() {
+        var exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/admin/v1/convenios")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5174"));
+        WebFilterChain chain = ex -> Mono.empty();
+
+        filter.filter(exchange, chain).block();
+
+        var headers = exchange.getResponse().getHeaders();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(headers.getFirst("Access-Control-Allow-Origin")).isEqualTo("http://localhost:5174");
+        assertThat(headers.getFirst("Access-Control-Allow-Credentials")).isEqualTo("true");
+    }
+
+    @Test
+    void respostaUnauthorizedNaoVazaCorsParaOriginNaoAutorizado() {
+        var exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/admin/v1/convenios")
+                        .header(HttpHeaders.ORIGIN, "http://attacker.example.com"));
+        WebFilterChain chain = ex -> Mono.empty();
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        // Origin não-autorizada NÃO recebe Access-Control-Allow-Origin
+        assertThat(exchange.getResponse().getHeaders().getFirst("Access-Control-Allow-Origin")).isNull();
+    }
+
+    @Test
+    void preflightOptionsEmRotaPrivadaPulaFilter() {
+        // CORS preflight nunca traz Authorization. O filter precisa liberar
+        // pra o CorsWebFilter responder com os headers Access-Control-*.
+        var exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.options("/api/admin/v1/convenios").build());
+        AtomicBoolean chainCalled = new AtomicBoolean(false);
+        WebFilterChain chain = ex -> { chainCalled.set(true); return Mono.empty(); };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(chainCalled).as("OPTIONS deve passar pra cadeia").isTrue();
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+    }
 }

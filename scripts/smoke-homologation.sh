@@ -36,6 +36,34 @@ command -v jq   >/dev/null || fail "jq não encontrado no PATH (instale: apt/bre
 
 info "Smoke test contra ${BASE_URL}"
 
+# ── 0. Wait probe ───────────────────────────────────────────
+# /actuator/health do gateway sobe rapido e nao prova que o administrativo
+# ja terminou o boot do Spring Boot/Hibernate. Antes dos checks de verdade,
+# tentamos POST /auth/login com credenciais bobas ate receber 401/422 (=admin
+# respondendo). Enquanto vier 5xx ou 000, considera ainda nao pronto.
+# Pula este probe via SMOKE_SKIP_WAIT=1.
+if [[ "${SMOKE_SKIP_WAIT:-0}" != "1" ]]; then
+  info "Aguardando admin via gateway (timeout 120s)..."
+  for i in $(seq 1 60); do
+    code=$(curl -s -o /dev/null -w '%{http_code}' \
+      -X POST "${BASE_URL}/auth/login" \
+      -H "Content-Type: application/json" \
+      -d '{"email":"probe@p.com","senha":"probe"}' 2>/dev/null || echo 000)
+    case "${code}" in
+      401|422)
+        pass "Stack pronta após ${i}*2s (admin respondeu HTTP ${code})"
+        break
+        ;;
+      *)
+        if [[ "${i}" == "60" ]]; then
+          fail "Timeout (120s) — admin não respondeu HTTP 401/422 em /auth/login. Último: ${code}"
+        fi
+        sleep 2
+        ;;
+    esac
+  done
+fi
+
 # ── 1. Health ───────────────────────────────────────────────
 status=$(curl -s -o /tmp/smoke-health.json -w '%{http_code}' "${BASE_URL}/actuator/health" || true)
 if [[ "${status}" != "200" ]]; then

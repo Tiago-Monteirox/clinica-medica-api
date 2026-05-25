@@ -128,9 +128,9 @@ docker compose \
   down -v
 ```
 
-### Opção B — Production conceitual
+### Opção B — Production (3 MySQLs dedicados)
 
-Production não sobe MySQL local. Os serviços recebem URLs JDBC, usuários e senhas de bancos externos por variável de ambiente.
+Production implementa **database-per-service literal**: 3 containers MySQL separados (`db-administrativo` em `:3308`, `db-agendamento` em `:3309`, `db-atendimento` em `:3310`), cada um com volume próprio, init script próprio e usuário `svc_<servico>` com privilégio restrito ao seu schema. Em produção real esses containers seriam substituídos por instâncias gerenciadas (RDS, Cloud SQL, DBaaS) sem mudar o código.
 
 ```bash
 cp .env.production.example .env.production
@@ -142,7 +142,9 @@ docker compose \
   up --build -d
 ```
 
-O arquivo `.env.production` real não deve ser commitado. Use secrets/secret manager para `JWT_SECRET` e senhas de banco.
+Gateway em `http://localhost:8085` (8080 está ocupada pelo wordpress local — em produção real volta pra 8080).
+
+O arquivo `.env.production` real não deve ser commitado. No `.env.production.example` as senhas são **didáticas** (documentadas no próprio arquivo) — em produção real use secret manager para `JWT_SECRET` e `*_DB_PASSWORD`.
 
 ### Opção C — Local (IDE / terminal)
 
@@ -166,16 +168,68 @@ mvn spring-boot:run -pl atendimento
 mvn spring-boot:run -pl gateway
 ```
 
+### Opção D — Homologation + Production em paralelo (apresentação)
+
+Para demonstrar o **switch de ambiente** do api-console, suba os dois ambientes ao mesmo tempo. Cada um usa um `COMPOSE_PROJECT_NAME` distinto e portas separadas — não há conflito:
+
+```bash
+# HOM (gateway :8084, mysql :3307, Dozzle :9998)
+docker compose --env-file .env.homologation \
+  -f docker-compose.yml \
+  -f docker-compose.homologation.yml \
+  -f docker-compose.tools.yml \
+  up --build -d
+
+# PROD (gateway :8085, 3 DBs :3308/:3309/:3310, Dozzle :9999) em PARALELO
+docker compose --env-file .env.production \
+  -f docker-compose.yml \
+  -f docker-compose.production.yml \
+  -f docker-compose.tools.yml \
+  up --build -d
+```
+
+Endpoints com os dois ambientes ativos:
+
+- **HOM** Gateway `http://localhost:8084` · Dozzle `http://localhost:9998`
+- **PROD** Gateway `http://localhost:8085` · Dozzle `http://localhost:9999`
+
+---
+
+## API Console (demonstração ao vivo)
+
+[`saasclinic-api-console/`](saasclinic-api-console/) é um console web estilo Postman, em SPA estática (React + Babel via CDN, sem build step) servida em `http://localhost:5174`. Permite consumir as APIs em tempo real e tem **toggle HOM/PROD no Topbar** que troca a baseURL e o token (cada ambiente mantém seu próprio JWT no `localStorage`).
+
+```bash
+cd saasclinic-api-console
+python3 -m http.server 5174
+# abra http://localhost:5174 no navegador
+```
+
+Credenciais de login: `admin@clinica.com / admin123`.
+
+**Features:**
+
+- Catálogo de 30+ endpoints organizados por serviço
+- Cenários pré-montados (smoke, caminho feliz, erros, Feign, cleanup)
+- Cada execução do "Caminho feliz" usa `{{_uid}}` único nos campos uniques — não trava por duplicata
+- Cenário "Cleanup" deleta dados deixados pelos cenários filtrando por prefixo (`Unimed Demo …`, `Dr. Demo …`, `Paciente Demo …`)
+- Tema claro/escuro, histórico das últimas 50 requisições, preview e copy de cURL equivalente
+
+Documentação completa em [`docs/20-API-CONSOLE.md`](docs/20-API-CONSOLE.md).
+
 ---
 
 ## Ambientes e CI/CD
 
 ### Docker por ambiente
 
-| Ambiente | Comando base | Banco |
-|---|---|---|
-| `homologation` | `docker-compose.yml` + `docker-compose.homologation.yml` | 1 MySQL local com 3 schemas |
-| `production` | `docker-compose.yml` + `docker-compose.production.yml` | 3 bancos externos/DBaaS |
+| Ambiente | Comando base | Banco | Gateway |
+|---|---|---|---|
+| `homologation` | `docker-compose.yml` + `docker-compose.homologation.yml` | 1 MySQL local com 3 schemas | `:8084` |
+| `production` | `docker-compose.yml` + `docker-compose.production.yml` | 3 MySQLs dedicados (database-per-service) | `:8085` |
+| `hom + prod` em paralelo | ambos overlays com `COMPOSE_PROJECT_NAME` distinto | Hom (1 MySQL) + Prod (3 MySQLs), 8 containers no total | `:8084` e `:8085` |
+
+Overlay opcional [`docker-compose.tools.yml`](docker-compose.tools.yml) acrescenta um Dozzle por ambiente (HOM em `:9998`, PROD em `:9999`) para visualizar logs em tempo real — útil pra apresentação.
 
 Arquivos reais `.env*` ficam fora do Git. Apenas `.env.example`, `.env.homologation.example` e `.env.production.example` são versionados.
 
@@ -226,7 +280,9 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 16 | [Frontend — Esboço](docs/16-FRONTEND.md) | SPA React + Vite + shadcn (input para o design) |
 | 17 | [Ambientes — Tradeoffs](docs/17-AMBIENTES-TRADEOFFS.md) | Justificativa de homologation × production para apresentação; FAQ pra banca |
 | 18 | [Logging com SLF4J](docs/18-LOGGING.md) | Padronização com `@Slf4j` (Lombok), níveis de log, mapeamento por serviço |
-| — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–14 concluídos. Validações executadas. Pendências.** |
+| 19 | [Sanity Check pré-apresentação](docs/19-SANITY-CHECK.md) | Runbook end-to-end: subir hom + prod, DBeaver, Dozzle, smoke. Roteiro de 15 min pra banca |
+| 20 | [API Console](docs/20-API-CONSOLE.md) | SPA estática com switch HOM/PROD ao vivo — arquitetura do toggle, CORS, cenário pra demonstração |
+| — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–17 concluídos. Validações executadas. Pendências.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 
@@ -239,8 +295,12 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 | Escopo | Status |
 |---|---|
 | PASSOS 0–14 | Concluídos: microsserviços, segurança, gateway, Docker, testes e conteinerização por ambiente |
-| PASSO 15 | CI/CD com GitHub Actions implementado para `test`, `build`, `docker`, badge no README, smoke test e política de secrets |
-| JaCoCo/Codecov | Opcional, ainda não configurado no workflow atual |
+| PASSO 15 | CI/CD com GitHub Actions: jobs `test`, `build`, `docker` (matrix nos 4 módulos) e `smoke`. Imagens publicadas no GHCR |
+| JaCoCo + Codecov | Plugin no parent pom com exclusões de glue code; upload Codecov no job `test`; badge no README |
+| Logging (SLF4J + `@Slf4j`) | Padronização em todos os módulos, níveis INFO/WARN/ERROR/DEBUG por contexto, `LOG_LEVEL_APP` por env var |
+| Cobertura de testes | 76 testes (commons 93.8% · gateway 100% · administrativo 53.3% · agendamento 78.4% · atendimento 81.4%) |
+| Production com 3 MySQLs reais | Database-per-service literal: `db-administrativo`, `db-agendamento`, `db-atendimento` em containers separados |
+| API Console (frontend) | SPA estática com toggle HOM/PROD ao vivo, tokens por ambiente, cenários com cleanup automático |
 
 ### O que já está implementado
 
@@ -272,7 +332,15 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 - publica JARs como artefato `jars`
 - publica imagens Docker no GHCR em push para `main`
 - executa smoke test após o publish das imagens
-- README expõe o badge do workflow no topo
+- upload de cobertura JaCoCo pra Codecov no job `test`
+- 6 badges no README (CI, Codecov, Java, Spring Boot, Docker Compose, MIT)
+
+**API Console (`saasclinic-api-console/`)**
+- SPA estática React + Babel via CDN (sem build step)
+- Toggle HOM/PROD no Topbar troca a baseURL e o token em tempo real
+- Tokens por ambiente em `localStorage` (JWT_SECRET diferente entre hom e prod)
+- Catálogo de 30+ endpoints, cenários pré-montados, runner com variáveis `{{_uid}}`/`{{_ts}}`/`{{_now}}` pra cenários idempotentes
+- Cenário "Cleanup" que filtra por prefixo (`Demo …`) e limpa o que os cenários criaram
 
 ---
 

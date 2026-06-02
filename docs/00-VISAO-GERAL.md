@@ -87,7 +87,7 @@ Convenio (1) ─── (0..1) Paciente
 | Documentação | **SpringDoc OpenAPI** (`/swagger-ui.html` por serviço) | Padrão de mercado |
 | Logging HTTP | **Logbook** (Zalando) | Visibilidade do tráfego entre serviços |
 | Mapeamento DTO↔Entity | **ModelMapper** | Já adotado no commons existente |
-| Testes | **JUnit 5 + Mockito + Testcontainers** | Pirâmide completa: unit barato + integração com MySQL real |
+| Testes | **JUnit 5 + Mockito + MockMvc/WebMvcTest**; Testcontainers preparado | Suíte atual cobre services/controllers/gateway; integração com MySQL real fica como próxima evolução |
 | CI/CD | **GitHub Actions** | Substitui Jenkins do guia original; nativo do GitHub |
 | Build | **Maven multi-módulo** | `commons` instalado uma vez, herdado por todos via `dependencyManagement` |
 

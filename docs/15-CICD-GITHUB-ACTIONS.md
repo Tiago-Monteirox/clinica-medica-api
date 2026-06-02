@@ -67,16 +67,14 @@ Como a sintaxe é a mesma, se um dia quiser portar pra Gitea/self-hosted, basta 
 raiz/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml              # test + build + docker (push)
-│       └── pr.yml              # test apenas (em PR)
+│       └── ci.yml              # test + build + docker + smoke
 └── scripts/
     └── ci-smoke-test.sh        # opcional, rodado dentro de um job docker compose
 ```
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `.github/workflows/ci.yml` | Pipeline principal: testes, build, publicação de imagens em push para `main` |
-| `.github/workflows/pr.yml` | Apenas testes e build (sem publicar imagem) em pull requests |
+| `.github/workflows/ci.yml` | Pipeline principal: testes, build, publicação de imagens em push para `main` e smoke |
 | `scripts/ci-smoke-test.sh` | Validação ponta a ponta opcional executada dentro do job |
 
 ---
@@ -308,19 +306,19 @@ Pontos importantes:
 - `if: always()` — mesmo se o `mvn test` falhar, sobe parcial pra não perder métrica.
 - `fail_ci_if_error: false` — falha de upload não derruba o CI (o Codecov às vezes tem hiccup).
 - Repos públicos no Codecov **não precisam** de `token`. Em repo privado, configurar `CODECOV_TOKEN` em `Settings → Secrets`.
-- `commons` e `gateway` não têm testes, então não geram `jacoco.xml`. Codecov mostra esses módulos como 0% se você quiser que apareçam — basta adicionar pelo menos 1 teste em cada.
+- A suíte local gera relatórios JaCoCo também para `commons` e `gateway`. O workflow atual envia explicitamente os relatórios dos três serviços de negócio; inclua `commons/target/site/jacoco/jacoco.xml` e `gateway/target/site/jacoco/jacoco.xml` no step do Codecov se quiser que o badge agregue todos os módulos.
 
 ### Cobertura atual (atualizada após PASSO 17 — testes ampliados)
 
 | Módulo | Linhas instrumentadas | Cobertas | % | Testes |
 |---|---|---|---|---|
 | `commons` | 32 | 30 | **93.8%** | 7 |
-| `gateway` | 38 | 38 | **100.0%** | 12 |
+| `gateway` | 38 | 38 | **100.0%** | 15 |
 | `administrativo` | 210 | 112 | **53.3%** | 26 |
-| `agendamento` | 88 | 69 | **78.4%** | 16 |
-| `atendimento` | 70 | 57 | **81.4%** | 15 |
+| `agendamento` | 88 | 69 | **78.4%** | 15 |
+| `atendimento` | 70 | 57 | **81.4%** | 16 |
 
-**Total: 76 testes** (de 32 anteriores). Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
+**Total local atual: 79 testes**. Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
 
 ### Exclusions do JaCoCo (por que e quais)
 
@@ -549,7 +547,7 @@ A sintaxe dos workflows é a mesma. Não há retrabalho no código do projeto.
 O CI/CD com GitHub Actions está concluído quando:
 
 1. `.github/workflows/ci.yml` existe e roda em todo push.
-2. Job `test` executa `mvn test` e fica verde com 29 testes passando.
+2. Job `test` executa `mvn test` e fica verde com a suíte atual passando.
 3. Job `build` empacota os 4 JARs e disponibiliza como artefato.
 4. Job `docker` publica as 4 imagens em `ghcr.io/tiago-monteirox/clinica-*` em push para `main`.
 5. Badge de CI no README aponta para o workflow.

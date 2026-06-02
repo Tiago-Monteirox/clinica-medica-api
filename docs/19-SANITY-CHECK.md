@@ -75,7 +75,7 @@ docker compose --env-file .env.homologation \
 Abra no browser:
 
 ```
-http://localhost:9999
+http://localhost:9998
 ```
 
 **Mostra pra banca:**
@@ -374,7 +374,7 @@ docker compose --env-file .env.production \
 ```text
 00:00 — abre slide com diagrama de arquitetura (docs/diagramas/arquitetura-homologation.puml)
 01:00 — terminal: docker compose ... up (homologation + dozzle)
-03:00 — browser: http://localhost:9999 (Dozzle) — mostra 6 containers verdes
+03:00 — browser: http://localhost:9998 (Dozzle HOM) — mostra 6 containers verdes
 04:00 — DBeaver: conexão localhost:3307 — mostra 3 schemas no mesmo MySQL
 05:30 — terminal: ./scripts/smoke-homologation.sh — 5/5 OK
 06:30 — volta ao Dozzle → administrativo: mostra "INFO Login OK"
@@ -456,9 +456,9 @@ docker compose --env-file .env.production \
 - [ ] `mvn clean package -DskipTests` rodou sem erros há ≤ 1 hora
 - [ ] `docker info` responde
 - [ ] Nenhum container `clinica-*` órfão de execução anterior (`docker compose ls`)
-- [ ] Portas livres: `8080`, `8084`, `8085`, `9999`, `3307`, `3308`, `3309`, `3310`
+- [ ] Portas livres: `8084`, `8085`, `9998`, `9999`, `3307`, `3308`, `3309`, `3310`
 - [ ] DBeaver aberto com as 4 conexões já cadastradas (1 hom + 3 prod)
-- [ ] Browser aberto em `http://localhost:9999` (Dozzle) e nas Swaggers (`:8081`, `:8082`, `:8083`)
+- [ ] Browser aberto em `http://localhost:9998` (Dozzle HOM), `http://localhost:9999` (Dozzle PROD) e nas Swaggers (`:8081`, `:8082`, `:8083`)
 - [ ] Terminais separados: 1 pra comandos, 1 pra `docker compose logs -f`, 1 pra smoke
 - [ ] Slide de arquitetura aberto
 - [ ] Repo aberto no browser pra mostrar badges + Codecov no fim

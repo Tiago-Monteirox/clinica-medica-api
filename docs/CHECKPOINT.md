@@ -1,6 +1,6 @@
 # Checkpoint — clínica-médica-api
 
-> Última atualização: 2026-05-21. Snapshot do progresso após concluir do **PASSO 0 ao 14** do `02-ROTEIRO.md` e redefinir o **PASSO 15** para conteinerização por ambiente + CI/CD com GitHub Actions. Inclui as decisões técnicas tomadas, desvios em relação ao roteiro original, validações executadas (inclusive Swagger) e o estado atual da stack.
+> Última atualização: 2026-06-02. Snapshot consolidado do estado atual após concluir os **PASSOS 0–17**, entregar o API Console estático e validar a suíte local com `mvn test` (**79 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
 
 ---
 
@@ -15,69 +15,59 @@
 | 4 | Médico | OK |
 | 5 | Paciente (FK opcional para Convênio) | OK |
 | 6 | Auth + emissão JWT | OK |
-| 7 | Spring Security + `@PreAuthorize` em **todos** os controllers | OK |
+| 7 | Spring Security + `@PreAuthorize` nos controllers | OK |
 | 8 | Checkpoint administrativo ponta a ponta | OK |
 | 9 | administrativo em container Docker | OK |
 | 10 | agendamento (Feign + ErrorDecoder) | OK |
 | 11 | atendimento (Feign + denormalização) | OK |
 | 12 | API Gateway (Spring Cloud Gateway, WebFlux) | OK |
-| 13 | Stack Docker completa (5 containers) | OK |
-| 14 | Testes unitários (29 testes verdes) | OK |
-| 15 | Conteinerização por ambiente + CI/CD com GitHub Actions | PENDENTE |
+| 13 | Stack Docker completa | OK |
+| 14 | Testes automatizados iniciais | OK |
+| 15 | Conteinerização por ambiente + CI/CD com GitHub Actions | OK |
+| 16 | Logging com SLF4J + Lombok | OK |
+| 17 | Cobertura ampliada | OK |
+| 20 | API Console estático para demonstração HOM/PROD | OK |
 
 ---
 
 ## Arquitetura entregue
 
-```
- cliente
-   │
-   ▼
-┌─────────────────────────────────────────────────┐
-│  gateway  (Spring Cloud Gateway / WebFlux)      │
-│  porta 8080 (host: 8084 — 8080 ocupado por      │
-│  wordpress local)                               │
-│                                                 │
-│   /auth/**           → administrativo:8081      │
-│   /api/admin/**      → administrativo:8081      │
-│   /api/agendamentos/** → agendamento:8082       │
-│   /api/atendimentos/** → atendimento:8083       │
-└─────────────────────────────────────────────────┘
-   │                │                  │
-   ▼                ▼                  ▼
-administrativo   agendamento        atendimento
-  :8081            :8082               :8083
-  + JWT           Feign→admin.        Feign→agend.
-  + BCrypt        valida ID paciente   valida agendamento
-  + 5 controllers e médico            denormaliza p/m IDs
+```text
+cliente / api-console / curl
+        |
+        v
+gateway :8084 HOM / :8085 PROD
+        |
+        +--> administrativo :8081
+        +--> agendamento    :8082
+        +--> atendimento    :8083
 
-       ▼              ▼                ▼
-       └──── MySQL 8.3 (clinica-mysql:3306) ────┘
-              ├─ clinica_administrativo
-              ├─ clinica_agendamento
-              └─ clinica_atendimento
+HOM:  1 MySQL com 3 schemas
+PROD: 3 MySQLs dedicados em Compose local
 ```
+
+O gateway valida JWT e roteia. A autorização por role é aplicada nos microsserviços com `@PreAuthorize`. Entre serviços, a comunicação é HTTP/REST via OpenFeign.
 
 ---
 
 ## Decisão atual de ambientes e CI/CD
 
-Após discussão com o squad, a implementação de Kubernetes foi retirada da entrega atual. A decisão prática agora é:
-
 | Tema | Decisão |
 |---|---|
 | Ambientes | Docker Compose com `homologation` e `production` |
-| `homologation` | ambiente atual: 1 MySQL com 3 databases lógicos |
-| `production` | containers da aplicação apontando para 3 bancos externos/DBaaS |
-| CI/CD | GitHub Actions (cloud) com publicação de imagens no GHCR |
-| Demonstração | push no GitHub → workflow → `mvn test` → build dos JARs → build/push das 4 imagens Docker no `ghcr.io/tiago-monteirox/clinica-*` → (opcional) smoke test |
-| Frontend | adiado para depois |
+| `homologation` | 1 MySQL com 3 databases lógicos |
+| `production` | 3 MySQLs dedicados em Compose local; em produção real, substituíveis por DBaaS |
+| CI/CD | GitHub Actions com jobs `test`, `build`, `docker` e `smoke` |
+| Demonstração | API Console estático com toggle HOM/PROD, Dozzle e smoke scripts |
+| Frontend | API Console entregue; SPA de produto continua como evolução |
 
-Documentos criados/atualizados para essa decisão:
+Documentos centrais:
 
-- [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md) — guia de Docker Compose por ambiente.
-- [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md) — guia de CI/CD com GitHub Actions e GHCR.
-- [`13-AMBIENTES-E-WIREFRAMES.md`](13-AMBIENTES-E-WIREFRAMES.md) — marcado como frontend adiado e proposta Kubernetes substituída.
+- [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md) — Docker Compose por ambiente.
+- [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md) — CI/CD com GitHub Actions e GHCR.
+- [`17-AMBIENTES-TRADEOFFS.md`](17-AMBIENTES-TRADEOFFS.md) — defesa dos tradeoffs HOM x PROD.
+- [`19-SANITY-CHECK.md`](19-SANITY-CHECK.md) — runbook pré-apresentação.
+- [`20-API-CONSOLE.md`](20-API-CONSOLE.md) — API Console com switch HOM/PROD.
 
 Kubernetes fica como evolução futura, não como entrega principal.
 
@@ -186,13 +176,13 @@ Todas as checagens do roteiro foram rodadas e passaram (a saída é reproduzíve
 - `docker compose up --build -d` sobe 5 containers (`mysql`, `administrativo`, `agendamento`, `atendimento`, `gateway`).
 - Fluxo completo convênio → médico → paciente → agendamento → atendimento via gateway funcionando.
 
-### Step 14 — testes unitários
-- `mvn test` executa **29 testes**, 0 falhas, 0 erros:
-  - `ConvenioServiceTest` (8)
-  - `MedicoServiceTest` (5)
-  - `PacienteServiceTest` (5)
-  - `AgendamentoServiceTest` (6)
-  - `AtendimentoServiceTest` (5)
+### Step 14/17 — testes automatizados
+- `mvn test` executa **79 testes**, 0 falhas, 0 erros (validado em 2026-06-02):
+  - `commons`: `GlobalExceptionHandlerTest` (7)
+  - `administrativo`: `ConvenioServiceTest` (8), `MedicoServiceTest` (5), `PacienteServiceTest` (5), `AuthServiceTest` (5), `JwtServiceTest` (3)
+  - `atendimento`: `AtendimentoControllerTest` (11), `AtendimentoServiceTest` (5)
+  - `agendamento`: `AgendamentoControllerTest` (9), `AgendamentoServiceTest` (6)
+  - `gateway`: `JwtAuthenticationFilterTest` (10), `JwtUtilTest` (5)
 
 ---
 
@@ -312,7 +302,7 @@ Todos os três retornam `302 → /swagger-ui/index.html` quando acessados pela U
 - [ ] Endpoint protegido responde `401` sem token e `200` com `Authorization: Bearer <jwt>`.
 - [ ] Endpoint com role insuficiente responde `403`.
 
-**Pendência conhecida:** adicionar `@SecurityScheme` global em cada serviço para habilitar o botão **Authorize** do Swagger UI. Faz parte do polimento do PASSO 15 (ver lista abaixo).
+**Polimento opcional:** adicionar `@SecurityScheme` global em cada serviço para habilitar o botão **Authorize** do Swagger UI. As rotas já funcionam com header manual ou chamada via API Console.
 
 ---
 
@@ -406,31 +396,21 @@ docker compose up --build -d
 
 ---
 
-## O que ficou pendente (PASSO 15)
+## Status das antigas pendências do PASSO 15
 
-- Separar Docker Compose em base + overrides:
-  - `docker-compose.yml`
-  - `docker-compose.homologation.yml`
-  - `docker-compose.production.yml`
-- Criar exemplos de ambiente:
-  - `.env.homologation.example`
-  - `.env.production.example`
-- Criar smoke tests:
-  - `scripts/smoke-homologation.sh`
-  - `scripts/smoke-production.sh`
-- Criar workflows em `.github/workflows/`:
-  - `ci.yml` — `mvn test` + build dos JARs + build/push das 4 imagens Docker no GHCR (matrix por módulo)
-  - `pr.yml` — apenas `mvn test` + build em pull requests (sem publicar imagem)
-- Habilitar **Read and write permissions** em `Settings → Actions → General → Workflow permissions` (necessário pro GHCR).
-- Adicionar plugin JaCoCo no `pom.xml` raiz e gerar relatório de cobertura no workflow.
-- Adicionar badges no `README.md`:
-  - status do workflow CI
-  - cobertura (Codecov ou Coveralls)
-- Tornar os pacotes do GHCR públicos (`Packages → Package settings → Change visibility`) para a banca conseguir puxar sem login.
-- Revisar Swagger em todos os serviços (`@Tag`, `@Operation`, `@Schema`) como polimento.
-- Adicionar `@SecurityScheme(name = "bearer-jwt", type = HTTP, scheme = "bearer", bearerFormat = "JWT")` em cada serviço para habilitar o botão **Authorize** do Swagger UI (hoje o usuário precisa colar o header `Authorization: Bearer <token>` manualmente em cada `Try it out`).
+As pendências listadas no checkpoint original foram concluídas ou reclassificadas:
 
-Esses são automação e polimento — não bloqueiam o **Definition of Done** funcional. O critério de CI/CD agora é demonstrar o pipeline rodando no **GitHub Actions** com `mvn test` verde, JARs como artefato e as 4 imagens publicadas no GHCR.
+- [x] Docker Compose separado em base + overlays: `docker-compose.yml`, `docker-compose.homologation.yml`, `docker-compose.production.yml`.
+- [x] Exemplos de ambiente criados: `.env.homologation.example`, `.env.production.example`.
+- [x] Smoke tests criados: `scripts/smoke-homologation.sh`, `scripts/smoke-production.sh`, `scripts/ci-smoke-test.sh`.
+- [x] Workflow `.github/workflows/ci.yml` criado com jobs `test`, `build`, `docker` e `smoke`.
+- [x] JaCoCo configurado no `pom.xml` raiz.
+- [x] Badges principais adicionados ao README.
+- [x] Swagger acessível publicamente nos três serviços.
+- [ ] Polimento opcional: adicionar `@SecurityScheme` global para habilitar o botão **Authorize** do Swagger UI.
+- [ ] Ação externa/manual: confirmar se os pacotes GHCR estão públicos para a banca, se houver necessidade de pull sem login.
+
+Observação: não existe mais `.github/workflows/pr.yml`; o `ci.yml` já cobre `pull_request` para `main`.
 
 ---
 
@@ -443,7 +423,7 @@ Esses são automação e polimento — não bloqueiam o **Definition of Done** f
 | 3 | Fluxo convênio → médico → paciente → agendamento → atendimento via gateway | ATENDIDO |
 | 4 | Sem token → 401, role errada → 403 | ATENDIDO |
 | 5 | `mvn test` passa em todos os módulos | ATENDIDO |
-| 6 | CI/CD com GitHub Actions rodando testes, build dos JARs e publicação de imagens Docker no GHCR | PENDENTE (PASSO 15) |
+| 6 | CI/CD com GitHub Actions rodando testes, build dos JARs e publicação de imagens Docker no GHCR | ATENDIDO |
 | 7 | Swagger acessível em cada serviço sem autenticação | ATENDIDO |
 
 ---
@@ -497,7 +477,7 @@ gateway/src/main/java/.../GatewayApplication.java
 gateway/src/main/java/.../security/{JwtUtil,JwtAuthenticationFilter}.java
 gateway/src/main/java/.../config/SecurityConfig.java   # permitAll no WebFlux; o filtro nosso é quem barra
 
-docs/13-AMBIENTES-E-WIREFRAMES.md             # frontend adiado; Kubernetes substituído
+docs/13-AMBIENTES-E-WIREFRAMES.md             # SPA de produto proposta; API Console entregue no doc 20; Kubernetes substituído
 docs/14-CONTEINERIZACAO-AMBIENTES.md          # novo guia Docker Compose por ambiente
 docs/15-CICD-GITHUB-ACTIONS.md                # novo guia GitHub Actions + GHCR
 ```
@@ -665,21 +645,21 @@ Default: `INFO`. Override em homologation: `LOG_LEVEL_APP=DEBUG` no `.env.homolo
 
 **Novo doc:** [`docs/18-LOGGING.md`](18-LOGGING.md).
 
-**Validação:** `mvn test` passa 32 testes com novos logs aparecendo; smoke production 5/5 OK; logs verificados (`INFO Tentativa de login para probe@p.com` → `WARN Login falhou: e-mail probe@p.com não cadastrado` → `INFO Login OK: usuário id=1`).
+**Validação:** `mvn test` passou; smoke production 5/5 OK; logs verificados (`INFO Tentativa de login para probe@p.com` → `WARN Login falhou: e-mail probe@p.com não cadastrado` → `INFO Login OK: usuário id=1`).
 
 ---
 
 ## PASSO 17 — Cobertura ampliada (concluído em 2026-05-24)
 
-Subiu cobertura de testes em todos os 5 módulos, partindo do baseline `15/37/31/0/0%` para os números abaixo. 44 testes novos (32 → 76 total).
+Subiu cobertura de testes em todos os 5 módulos, partindo do baseline `15/37/31/0/0%`. A suíte local atual tem **79 testes** verdes.
 
 | Módulo | Antes | Depois | Δ | Testes adicionados |
 |---|---|---|---|---|
 | `commons` | 0% | **93.8%** | +93.8 | `GlobalExceptionHandlerTest` (7 testes) |
-| `gateway` | 0% | **100.0%** | +100.0 | `JwtUtilTest` (5) + `JwtAuthenticationFilterTest` (7) |
+| `gateway` | 0% | **100.0%** | +100.0 | `JwtUtilTest` (5) + `JwtAuthenticationFilterTest` (10) |
 | `administrativo` | 15.6% | **53.3%** | +37.7 | `AuthServiceTest` (5) + `JwtServiceTest` (3) |
-| `agendamento` | 37.4% | **78.4%** | +41.0 | `AgendamentoControllerTest` (10) com `@WebMvcTest` |
-| `atendimento` | 31.1% | **81.4%** | +50.3 | `AtendimentoControllerTest` (10) com `@WebMvcTest` |
+| `agendamento` | 37.4% | **78.4%** | +41.0 | `AgendamentoControllerTest` (9) com `@WebMvcTest` |
+| `atendimento` | 31.1% | **81.4%** | +50.3 | `AtendimentoControllerTest` (11) com `@WebMvcTest` |
 
 **Decisão de arquitetura de testes:**
 

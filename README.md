@@ -32,7 +32,7 @@ gateway :8084 no host / :8080 no container
             └─ clinica_atendimento
 ```
 
-Cada microsserviço tem **seu próprio schema lógico** em homologation. Em production, a mesma codebase aponta para **três bancos externos independentes**. A comunicação entre serviços é feita exclusivamente via HTTP/REST com **OpenFeign** declarativo. O Gateway é a única porta de entrada e centraliza autenticação JWT.
+Cada microsserviço tem **seu próprio schema lógico** em homologation. Em production local, a mesma codebase aponta para **três MySQLs dedicados independentes**; em produção real, esses containers seriam substituídos por DBaaS sem mudança no Java. A comunicação entre serviços é feita exclusivamente via HTTP/REST com **OpenFeign** declarativo. O Gateway é a única porta de entrada e valida autenticação JWT; a autorização fina por role fica nos microsserviços.
 
 ---
 
@@ -64,7 +64,7 @@ Cada microsserviço tem **seu próprio schema lógico** em homologation. Em prod
 | Validação | Bean Validation (Jakarta) | — |
 | Segurança | Spring Security + JJWT | 6.x / 0.12.x |
 | Testes (unit) | JUnit 5 + Mockito + AssertJ | — |
-| Testes (integração) | Testcontainers + MockMvc | — |
+| Testes | JUnit 5 + Mockito + MockMvc/WebMvcTest; Testcontainers preparado como dependência | — |
 | Build | Maven multi-módulo | 3.9 |
 | Container | Docker + Docker Compose | — |
 | CI/CD | GitHub Actions | — |
@@ -272,10 +272,10 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 08 | [Segurança (JWT)](docs/08-SEGURANCA.md) | Autenticação, autorização por role |
 | 09 | [Docker](docs/09-DOCKER.md) | Dockerfile multi-stage, docker-compose |
 | 10 | [CI/CD com GitHub Actions](docs/10-CICD.md) | Visão geral do pipeline — implementação detalhada no PASSO 15 |
-| 11 | [Testes](docs/11-TESTES.md) | JUnit, Mockito, Testcontainers, MockMvc |
+| 11 | [Testes](docs/11-TESTES.md) | Estado atual dos testes, JUnit/Mockito/WebMvcTest e Testcontainers como evolução |
 | 12 | [Referência de Tecnologias](docs/12-TECNOLOGIAS.md) | Aprofundamento técnico de cada peça |
-| 13 | [Ambientes e Wireframes (proposta)](docs/13-AMBIENTES-E-WIREFRAMES.md) | Proposta inicial — frontend adiado, Kubernetes substituído pelo doc 14 |
-| 14 | [Conteinerização por Ambiente](docs/14-CONTEINERIZACAO-AMBIENTES.md) | Docker Compose: `homologation` (1 MySQL, 3 schemas) e `production` (3 bancos externos) |
+| 13 | [Ambientes e Wireframes (proposta)](docs/13-AMBIENTES-E-WIREFRAMES.md) | Proposta da SPA de produto; API Console entregue no doc 20; Kubernetes substituído pelo doc 14 |
+| 14 | [Conteinerização por Ambiente](docs/14-CONTEINERIZACAO-AMBIENTES.md) | Docker Compose: `homologation` (1 MySQL, 3 schemas) e `production` local (3 MySQLs dedicados) |
 | 15 | [CI/CD com GitHub Actions](docs/15-CICD-GITHUB-ACTIONS.md) | Pipeline `mvn test` + build dos JARs + push das imagens para o GHCR |
 | 16 | [Frontend — Esboço](docs/16-FRONTEND.md) | SPA React + Vite + shadcn (input para o design) |
 | 17 | [Ambientes — Tradeoffs](docs/17-AMBIENTES-TRADEOFFS.md) | Justificativa de homologation × production para apresentação; FAQ pra banca |
@@ -294,11 +294,11 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 
 | Escopo | Status |
 |---|---|
-| PASSOS 0–14 | Concluídos: microsserviços, segurança, gateway, Docker, testes e conteinerização por ambiente |
+| PASSOS 0–14 | Concluídos: microsserviços, segurança, gateway, Docker base e testes automatizados |
 | PASSO 15 | CI/CD com GitHub Actions: jobs `test`, `build`, `docker` (matrix nos 4 módulos) e `smoke`. Imagens publicadas no GHCR |
 | JaCoCo + Codecov | Plugin no parent pom com exclusões de glue code; upload Codecov no job `test`; badge no README |
 | Logging (SLF4J + `@Slf4j`) | Padronização em todos os módulos, níveis INFO/WARN/ERROR/DEBUG por contexto, `LOG_LEVEL_APP` por env var |
-| Cobertura de testes | 76 testes (commons 93.8% · gateway 100% · administrativo 53.3% · agendamento 78.4% · atendimento 81.4%) |
+| Cobertura de testes | 79 testes verdes em `mvn test` (commons 7 · administrativo 26 · atendimento 16 · agendamento 15 · gateway 15) |
 | Production com 3 MySQLs reais | Database-per-service literal: `db-administrativo`, `db-agendamento`, `db-atendimento` em containers separados |
 | API Console (frontend) | SPA estática com toggle HOM/PROD ao vivo, tokens por ambiente, cenários com cleanup automático |
 
@@ -308,7 +308,7 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 - `Dockerfile` runtime-only parametrizado por `ARG MODULE`
 - `docker-compose.yml` como base comum dos 4 serviços
 - `docker-compose.homologation.yml` com MySQL 8.3 local, volume e healthcheck
-- `docker-compose.production.yml` sem MySQL local, preparado para bancos externos
+- `docker-compose.production.yml` com 3 MySQLs dedicados locais, representando database-per-service físico
 - `.env.example`, `.env.homologation.example`, `.env.production.example`
 - `.gitignore` bloqueando `.env*` reais e liberando apenas exemplos
 - `scripts/smoke-homologation.sh`, `scripts/smoke-production.sh` e `scripts/ci-smoke-test.sh`

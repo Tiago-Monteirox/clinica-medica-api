@@ -8,7 +8,7 @@
 
 ## Resumo executivo
 
-A arquitetura do projeto é **database-per-service** lógico em homologation e **database-per-service físico** em production. **Não há duas codebases.** O mesmo código Java roda nos dois ambientes; o que muda é a configuração externa (`SPRING_DATASOURCE_URL`, usuário, senha) injetada via variáveis de ambiente.
+A arquitetura do projeto é **database-per-service** lógico em homologation e **database-per-service físico** em production. **Não há duas codebases.** O mesmo código Java roda nos dois ambientes; o que muda é a configuração externa (`SPRING_DATASOURCE_URL`, usuário, senha) injetada via variáveis de ambiente. Na entrega atual, `production` é demonstrado localmente com 3 MySQLs dedicados via `docker-compose.production.yml`; em produção real, esses containers podem ser substituídos por DBaaS sem mudar o Java.
 
 Essa portabilidade só é real porque o projeto respeita 6 regras de design que impedem o código de assumir que os dados de outros serviços estão no mesmo banco. As regras são apresentadas adiante.
 
@@ -53,12 +53,12 @@ Um servidor MySQL hospeda três schemas. Cada serviço só conecta ao seu própr
    ┌──────┐    ┌──────┐    ┌──────┐
    │ DB   │    │ DB   │    │ DB   │
    │admin │    │agend │    │atend │
-   │(DBaaS│    │(DBaaS│    │(DBaaS│
-   │ ext.)│    │ ext.)│    │ ext.)│
+   │MySQL/│    │MySQL/│    │MySQL/│
+   │DBaaS │    │DBaaS │    │DBaaS │
    └──────┘    └──────┘    └──────┘
 ```
 
-Três instâncias de banco independentes — host, credencial, backup e escala próprios por serviço.
+Na entrega local, são três MySQLs em containers independentes. Em produção real, esses bancos podem ser instâncias gerenciadas/DBaaS. Em ambos os casos, host, credencial, backup e escala são próprios por serviço.
 
 ---
 
@@ -155,7 +155,7 @@ Não existe `@Transactional` que cubra operação em mais de um serviço. Cada s
 | **Credenciais** | 1 usuário root para tudo | 3 usuários, cada um com acesso só ao seu banco (princípio do menor privilégio) |
 | **Escalabilidade** | escalar verticalmente o MySQL único | escalar só o banco quente (ex.: agendamento na alta) |
 | **Compliance / LGPD** | difícil isolar dado sensível por contexto | natural — atendimento (dados clínicos) pode ter encryption e auditoria mais fortes |
-| **Setup local** | `docker compose up` resolve | precisa de DBaaS ou 3 instâncias rodando |
+| **Setup local** | `docker compose` de homologation resolve | `docker compose` de production sobe 3 MySQLs locais; produção real exige DBaaS/instâncias |
 | **Observabilidade** | 1 dashboard, 1 conjunto de métricas | 3 dashboards, mais painéis |
 | **Custo total de ownership** | baixo, mas concentrado | maior, mas distribuído |
 
@@ -208,11 +208,11 @@ Os 3 bancos evoluem independentemente. Deploy do `atendimento` v2 esperando colu
 
 ## Como provar agora que o código está pronto para produção
 
-Antes de gastar em DBaaS, dá pra validar **em homologation** que o código não está acoplado ao "tudo no mesmo banco":
+A validação de isolamento físico já está disponível no ambiente `production` local: ele troca o MySQL único por três containers dedicados e prova que o código não está acoplado ao "tudo no mesmo banco":
 
 ### Teste A — três MySQLs separados em compose
 
-Subir um `docker-compose.test-isolation.yml` com **3 services MySQL separados** (`mysql-administrativo`, `mysql-agendamento`, `mysql-atendimento`), em portas diferentes, cada serviço apontando para seu próprio. Rodar o smoke test ponta-a-ponta.
+Subir `docker-compose.yml` + `docker-compose.production.yml`, que cria **3 services MySQL separados** (`db-administrativo`, `db-agendamento`, `db-atendimento`), em portas diferentes, cada serviço apontando para seu próprio banco. Rodar o smoke test ponta-a-ponta.
 
 **Se passar, o código é portável.** Esse teste simula a topologia de production sem o custo do DBaaS.
 
@@ -249,7 +249,7 @@ Manter homologation com 1 banco é uma decisão pragmática, mas **mascara algun
 | Migrations conflitantes | Schema drift em deploy parcial |
 | Falta de retry/circuit breaker em chamadas Feign | Cascata de falhas quando um banco fica lento |
 
-**Recomendação:** rodar o **Teste A** (3 MySQLs em compose) antes de cada release maior. Pega 90% dos problemas que produção exporia.
+**Recomendação:** rodar o **Teste A** (`docker-compose.production.yml` com 3 MySQLs) antes de cada release maior. Pega 90% dos problemas que produção real exporia.
 
 ---
 
@@ -261,9 +261,9 @@ R: O princípio database-per-service é sobre **isolamento de modelo de dados e 
 
 ---
 
-**P: Por que não rodar produção com 3 MySQLs em containers também, em vez de DBaaS?**
+**P: Por que rodar production local com 3 MySQLs em containers, se produção real usaria DBaaS?**
 
-R: Funciona tecnicamente, mas perde os benefícios reais de produção: backup automatizado, alta disponibilidade, replicação, escalabilidade vertical sem downtime, segurança gerenciada. DBaaS (RDS, Cloud SQL, etc.) entrega tudo isso sem manutenção manual. Custo > benefício pra produção real.
+R: É a forma barata e reprodutível de demonstrar database-per-service físico na banca. Para clientes reais, os containers de banco seriam trocados por DBaaS (RDS, Cloud SQL, etc.) para ter backup automatizado, alta disponibilidade, replicação, escalabilidade vertical sem downtime e segurança gerenciada.
 
 ---
 

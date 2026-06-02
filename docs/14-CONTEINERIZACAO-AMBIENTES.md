@@ -12,7 +12,7 @@ Para a entrega do projeto, os ambientes serão implementados com **Docker Compos
 | Ambiente | Objetivo | Banco |
 |---|---|---|
 | `homologation` | ambiente atual, usado para demonstração, testes manuais e validação ponta a ponta | 1 MySQL com 3 databases lógicos |
-| `production` | ambiente final conceitual, com banco externo por serviço | 3 bancos externos/DBaaS |
+| `production` | ambiente final local, com banco dedicado por serviço | 3 MySQLs dedicados em Compose local; DBaaS como substituição em produção real |
 
 Kubernetes fica como evolução futura. A entrega atual prioriza uma stack reproduzível, simples de rodar e compatível com a apresentação do CI/CD via [GitHub Actions](15-CICD-GITHUB-ACTIONS.md).
 
@@ -86,21 +86,9 @@ gateway :8080 (8085 nesta máquina por conflito com wordpress local)
 
 ## Estratégia de arquivos
 
-### Estado atual
+### Estrutura atual
 
-Hoje o arquivo `docker-compose.yml` já representa a stack completa de homologation:
-
-- `mysql`;
-- `administrativo`;
-- `agendamento`;
-- `atendimento`;
-- `gateway`.
-
-Esse estado é aceitável e pode ser mantido como primeiro passo.
-
-### Estado recomendado
-
-Separar a configuração em arquivos por responsabilidade:
+A configuração vigente já está separada por responsabilidade: `docker-compose.yml` contém a base comum dos quatro serviços Java, e os overlays `docker-compose.homologation.yml` e `docker-compose.production.yml` acrescentam bancos, portas, URLs JDBC e variáveis específicas de cada ambiente.
 
 ```text
 raiz/
@@ -119,7 +107,7 @@ raiz/
 |---|---|
 | `docker-compose.yml` | base comum dos serviços da aplicação |
 | `docker-compose.homologation.yml` | MySQL local, URLs JDBC locais e portas de homologation |
-| `docker-compose.production.yml` | URLs de bancos externos e configuração de produção |
+| `docker-compose.production.yml` | 3 MySQLs dedicados, URLs JDBC e configuração de produção local |
 | `.env.homologation.example` | variáveis de exemplo para homologation |
 | `.env.production.example` | variáveis de exemplo para production |
 | `scripts/smoke-*.sh` | validações rápidas pós-deploy (também usados no job `smoke` do GitHub Actions) |
@@ -357,7 +345,7 @@ docker compose \
 
 ### Ponto de controle
 
-- [ ] Nenhum container MySQL sobe em production.
+- [ ] Três containers MySQL dedicados sobem saudáveis em production.
 - [ ] Cada serviço recebe sua própria URL JDBC.
 - [ ] Cada serviço usa usuário e senha próprios.
 - [ ] Gateway responde na porta definida para production.
@@ -395,7 +383,7 @@ Validar rapidamente se um ambiente subiu corretamente.
 ### Ponto de controle
 
 - [ ] Smoke test passa em homologation.
-- [ ] Smoke test consegue apontar para production quando os bancos externos existirem.
+- [ ] Smoke test consegue apontar para a stack production local.
 - [ ] Scripts não contêm senha real fixa.
 
 ---
@@ -737,7 +725,7 @@ docker compose --env-file .env.homologation \
   up -d
 ```
 
-**Acesso:** `http://localhost:9999` (configurável por `DOZZLE_HOST_PORT`).
+**Acesso:** `http://localhost:9998` em homologation e `http://localhost:9999` em production (configurável por `DOZZLE_HOST_PORT`).
 
 **Características relevantes:**
 
@@ -752,7 +740,7 @@ docker compose --env-file .env.homologation \
 **Cenário para a banca:**
 
 1. Stack já está rodando em `homologation` com Dozzle.
-2. Abrir `http://localhost:9999` no projetor — lista os 5 containers da aplicação verdes.
+2. Abrir `http://localhost:9998` no projetor em homologation — lista os 6 containers do ambiente verdes (5 da aplicação/banco + Dozzle).
 3. Em outra aba do navegador, rodar uma chamada (Swagger ou o `smoke-homologation.sh`) — os logs aparecem no Dozzle em tempo real.
 4. Clicar em um container (ex: `gateway`) para mostrar requisições chegando filtro JWT em ação.
 
@@ -776,11 +764,11 @@ docker compose --env-file .env.homologation \
 A conteinerização por ambiente está concluída quando:
 
 1. `homologation` sobe com um MySQL e três databases.
-2. `production` sobe sem container MySQL.
+2. `production` sobe com 3 containers MySQL dedicados.
 3. Cada serviço recebe datasource por variável de ambiente.
 4. Gateway é a única porta de entrada.
 5. Smoke test passa em homologation.
-6. Production está pronta para receber três bancos externos.
+6. Production local demonstra database-per-service físico e pode trocar os 3 MySQLs por DBaaS sem mudança no Java.
 7. Nenhum secret real está versionado.
 8. Os comandos operacionais estão documentados.
 

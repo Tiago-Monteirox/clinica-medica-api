@@ -1,7 +1,7 @@
 # 13 — Ambientes e Wireframes do Frontend
 
 > Documento de proposta. Não contém código, manifests Kubernetes ou implementação de telas.
-> Status: frontend adiado. Para a decisão atual de ambientes, use [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md). A proposta Kubernetes foi substituída por Docker Compose + GitHub Actions para a entrega (ver [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md)).
+> Status: SPA de produto ainda é proposta/evolução. Para a entrega atual, o frontend de demonstração é o API Console estático em [`20-API-CONSOLE.md`](20-API-CONSOLE.md). A proposta Kubernetes foi substituída por Docker Compose + GitHub Actions (ver [`14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md) e [`15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHUB-ACTIONS.md)).
 
 ## Objetivo
 

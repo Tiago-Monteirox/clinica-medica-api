@@ -1,8 +1,29 @@
 # 11 — Testes
 
-> Pirâmide completa: unit (JUnit + Mockito) + integração (Testcontainers + MockMvc). Tempo estimado: 4h.
+> Estado atual: a suíte automatizada usa JUnit 5, Mockito, AssertJ e WebMvcTest/MockMvc. Testcontainers está como dependência preparada e documentada como próxima evolução para testes de integração com MySQL real.
 
-## Pirâmide de testes
+## Estado atual validado
+
+Em 2026-06-02, `mvn test` passou com **79 testes**, 0 falhas, 0 erros:
+
+| Módulo | Testes |
+|---|---:|
+| `commons` | 7 |
+| `administrativo` | 26 |
+| `atendimento` | 16 |
+| `agendamento` | 15 |
+| `gateway` | 15 |
+
+A distribuição atual é:
+
+- Services: unit puro com Mockito.
+- Controllers de `agendamento` e `atendimento`: WebMvcTest + MockBean.
+- Gateway WebFlux: testes unitários com `MockServerWebExchange`.
+- Handler global: unit puro.
+
+As seções de Testcontainers abaixo são o desenho recomendado para a próxima etapa, não uma suíte ativa hoje.
+
+## Pirâmide alvo
 
 ```
                   /\
@@ -470,8 +491,8 @@ Para rodar no CI: `npm i -g newman && newman run collection.json`.
 ## Comandos
 
 ```bash
-# Rodar todos os testes
-mvn clean verify
+# Rodar todos os testes atuais
+mvn test
 
 # Só de um módulo
 mvn test -pl agendamento
@@ -479,11 +500,11 @@ mvn test -pl agendamento
 # Só uma classe
 mvn test -pl administrativo -Dtest=ConvenioServiceTest
 
-# Pular Testcontainers (só unit)
-mvn test -pl administrativo -DexcludedGroups=integration
+# Build completo com empacotamento
+mvn clean package -DskipTests
 ```
 
-> Para `@Tag("integration")` em IT classes, configure o `surefire-plugin` com `excludedGroups`. Permite separar runs rápidos (só unit) de runs completos (CI).
+> Ainda não há classes `*IT` ativas com `@Tag("integration")`. Quando Testcontainers entrar, configure o `surefire`/`failsafe` para separar unit rápido de integração.
 
 ---
 
@@ -501,14 +522,15 @@ mvn test -pl administrativo -DexcludedGroups=integration
 
 ## Checklist por serviço
 
-- [ ] `application-test.yml` com `ddl-auto=create-drop`
-- [ ] `AbstractIntegrationTest` com Testcontainers MySQL
-- [ ] `*ServiceTest` para cada Service (Mockito puro)
-- [ ] `*ControllerIT` para cada Controller (MockMvc + Testcontainers)
-- [ ] Casos cobertos: happy path, 400, 404, 422, 401/403
-- [ ] `@MockBean` para Feign clients em testes de service
-- [ ] `mvn clean verify` passa em todos os módulos
-- [ ] Cobertura JaCoCo ≥ 70%
+- [x] `*ServiceTest` para services principais (Mockito puro)
+- [x] `@WebMvcTest` para controllers de `agendamento` e `atendimento`
+- [x] Testes do `GlobalExceptionHandler`
+- [x] Testes do `JwtService`, `JwtUtil` e filtro JWT do gateway
+- [x] `mvn test` passa em todos os módulos
+- [ ] Próxima etapa: `application-test.yml` com `ddl-auto=create-drop`
+- [ ] Próxima etapa: `AbstractIntegrationTest` com Testcontainers MySQL
+- [ ] Próxima etapa: `*ControllerIT` para fluxos com repository + banco real
+- [ ] Próxima etapa: cobertura de 401/403 em controllers de `administrativo`
 
 ---
 

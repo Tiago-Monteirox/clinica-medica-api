@@ -1,6 +1,6 @@
 @startuml ArquiteturaProduction
 
-title Clínica Médica — Arquitetura PRODUCTION (alvo)\nDatabase-per-service real (3 bancos externos)
+title Clínica Médica — Arquitetura PRODUCTION\nDatabase-per-service físico (3 bancos dedicados)
 
 skinparam componentStyle rectangle
 skinparam linetype ortho
@@ -23,7 +23,7 @@ package "Microsserviços (containers)" {
     component "atendimento\nReplicas: N\nAtendimento" as at
 }
 
-cloud "DBaaS / instâncias\ngerenciadas" as dbcloud {
+package "Bancos dedicados\n(Compose local ou DBaaS real)" as dbcloud {
     database "DB administrativo\n(host + creds próprios)" as db_adm
     database "DB agendamento\n(host + creds próprios)" as db_ag
     database "DB atendimento\n(host + creds próprios)" as db_at

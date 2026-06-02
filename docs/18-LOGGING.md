@@ -194,7 +194,7 @@ docker compose --env-file .env.homologation \
   up -d
 ```
 
-Abra `http://localhost:9999`, clique no container, veja logs em tempo real com cores e filtros. Ver [`docs/14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md#visualizar-containers-em-tempo-real-apresentação) para detalhes.
+Abra `http://localhost:9998` em homologation ou `http://localhost:9999` em production, clique no container e veja logs em tempo real com cores e filtros. Ver [`docs/14-CONTEINERIZACAO-AMBIENTES.md`](14-CONTEINERIZACAO-AMBIENTES.md#visualizar-containers-em-tempo-real-apresentação) para detalhes.
 
 ---
 

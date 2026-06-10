@@ -4,7 +4,7 @@ import br.edu.imepac.agendamento.agendamento.dto.AgendamentoRequest;
 import br.edu.imepac.agendamento.agendamento.dto.AgendamentoResponse;
 import br.edu.imepac.agendamento.agendamento.dto.AgendamentoUpdateRequest;
 import br.edu.imepac.agendamento.agendamento.enums.StatusAgendamento;
-import br.edu.imepac.agendamento.client.AdministrativoClient;
+import br.edu.imepac.agendamento.client.AdministrativoLookupService;
 import br.edu.imepac.commons.exceptions.BusinessException;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -23,12 +23,12 @@ public class AgendamentoService {
             List.of(StatusAgendamento.AGENDADO, StatusAgendamento.CONFIRMADO);
 
     private final AgendamentoRepository repository;
-    private final AdministrativoClient administrativoClient;
+    private final AdministrativoLookupService lookupService;
 
     public AgendamentoService(AgendamentoRepository repository,
-                              AdministrativoClient administrativoClient) {
+                              AdministrativoLookupService lookupService) {
         this.repository = repository;
-        this.administrativoClient = administrativoClient;
+        this.lookupService = lookupService;
     }
 
     public AgendamentoResponse criar(AgendamentoRequest req) {
@@ -101,14 +101,14 @@ public class AgendamentoService {
     }
 
     private void validarPacienteExiste(Long id) {
-        if (!administrativoClient.pacienteExiste(id).exists()) {
+        if (!lookupService.pacienteExiste(id)) {
             log.warn("Validação Feign: paciente {} não existe no administrativo", id);
             throw new EntityNotFoundException("Paciente com id " + id + " não encontrado");
         }
     }
 
     private void validarMedicoExiste(Long id) {
-        if (!administrativoClient.medicoExiste(id).exists()) {
+        if (!lookupService.medicoExiste(id)) {
             log.warn("Validação Feign: médico {} não existe no administrativo", id);
             throw new EntityNotFoundException("Médico com id " + id + " não encontrado");
         }

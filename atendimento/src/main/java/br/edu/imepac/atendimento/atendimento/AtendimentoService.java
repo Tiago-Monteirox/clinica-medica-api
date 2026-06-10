@@ -4,6 +4,7 @@ import br.edu.imepac.atendimento.atendimento.dto.AtendimentoRequest;
 import br.edu.imepac.atendimento.atendimento.dto.AtendimentoResponse;
 import br.edu.imepac.atendimento.atendimento.dto.AtendimentoUpdateRequest;
 import br.edu.imepac.atendimento.client.AgendamentoClient;
+import br.edu.imepac.atendimento.messaging.AtendimentoEventPublisher;
 import br.edu.imepac.commons.exceptions.BusinessException;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -20,10 +21,14 @@ public class AtendimentoService {
 
     private final AtendimentoRepository repository;
     private final AgendamentoClient agendamentoClient;
+    private final AtendimentoEventPublisher eventPublisher;
 
-    public AtendimentoService(AtendimentoRepository repository, AgendamentoClient agendamentoClient) {
+    public AtendimentoService(AtendimentoRepository repository,
+                              AgendamentoClient agendamentoClient,
+                              AtendimentoEventPublisher eventPublisher) {
         this.repository = repository;
         this.agendamentoClient = agendamentoClient;
+        this.eventPublisher = eventPublisher;
     }
 
     public AtendimentoResponse registrar(AtendimentoRequest req) {
@@ -59,6 +64,10 @@ public class AtendimentoService {
         var saved = repository.save(entity);
         log.info("Atendimento {} registrado (agendamento={}, paciente={}, médico={})",
                 saved.getId(), saved.getAgendamentoId(), saved.getPacienteId(), saved.getMedicoId());
+
+        // Publica evento assincrono — o agendamento vai atualizar o status para ATENDIDO
+        eventPublisher.publicarAtendimentoRegistrado(saved);
+
         return toResponse(saved);
     }
 

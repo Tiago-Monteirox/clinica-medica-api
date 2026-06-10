@@ -41,10 +41,17 @@ spring:
             allowCredentials: true
             maxAge: 3600
       routes:
+        # /auth/login é alvo natural de brute-force — limite baixo por IP
         - id: auth
           uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
           predicates:
             - Path=/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: ${RATELIMIT_AUTH_REPLENISH:5}
+                redis-rate-limiter.burstCapacity: ${RATELIMIT_AUTH_BURST:10}
 
         - id: administrativo
           uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
@@ -59,6 +66,11 @@ spring:
             - Path=/api/agendamentos/**
           filters:
             - StripPrefix=2
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: ${RATELIMIT_AGENDAMENTO_REPLENISH:10}
+                redis-rate-limiter.burstCapacity: ${RATELIMIT_AGENDAMENTO_BURST:20}
 
         - id: atendimento
           uri: ${ATENDIMENTO_URL:http://localhost:8083}
@@ -66,6 +78,13 @@ spring:
             - Path=/api/atendimentos/**
           filters:
             - StripPrefix=2
+
+  # Redis usado pelo RequestRateLimiter (token bucket distribuido).
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
 
   lifecycle:
     timeout-per-shutdown-phase: 30s

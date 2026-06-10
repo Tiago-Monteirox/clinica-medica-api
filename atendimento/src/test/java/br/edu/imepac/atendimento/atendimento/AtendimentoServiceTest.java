@@ -3,6 +3,7 @@ package br.edu.imepac.atendimento.atendimento;
 import br.edu.imepac.atendimento.atendimento.dto.AtendimentoRequest;
 import br.edu.imepac.atendimento.atendimento.dto.AtendimentoResponse;
 import br.edu.imepac.atendimento.client.AgendamentoClient;
+import br.edu.imepac.atendimento.messaging.AtendimentoEventPublisher;
 import br.edu.imepac.commons.dto.ApiResponse;
 import br.edu.imepac.commons.exceptions.BusinessException;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
@@ -26,6 +27,9 @@ class AtendimentoServiceTest {
 
     @Mock
     private AgendamentoClient agendamentoClient;
+
+    @Mock
+    private AtendimentoEventPublisher eventPublisher;
 
     @InjectMocks
     private AtendimentoService service;

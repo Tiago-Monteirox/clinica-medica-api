@@ -4,5 +4,7 @@ public enum StatusAgendamento {
     AGENDADO,
     CONFIRMADO,
     CANCELADO,
-    REALIZADO
+    REALIZADO,
+    /** Atualizado de forma assíncrona quando o atendimento é registrado via RabbitMQ. */
+    ATENDIDO
 }

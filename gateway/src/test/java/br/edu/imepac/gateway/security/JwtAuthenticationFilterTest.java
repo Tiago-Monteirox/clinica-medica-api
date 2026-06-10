@@ -31,7 +31,8 @@ class JwtAuthenticationFilterTest {
     @BeforeEach
     void setUp() {
         util = new JwtUtil(SECRET);
-        filter = new JwtAuthenticationFilter(util);
+        // blacklistService null — desliga verificacao Redis nos testes unitarios
+        filter = new JwtAuthenticationFilter(util, null);
         key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
     }
 

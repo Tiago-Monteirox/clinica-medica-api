@@ -74,6 +74,40 @@ services:
       start_period: 20s
     networks: [clinica-net]
 
+  # ── Redis ─────────────────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [clinica-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── RabbitMQ ──────────────────────────────────────────────────────────────
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: always
+    ports:
+      - "${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_HOST_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clinica}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-clinica}
+    networks: [clinica-net]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # ── Aplicação: cada serviço espera SEU banco saudável ────────────────────
 
   administrativo:
@@ -84,26 +118,51 @@ services:
 
   agendamento:
     restart: always
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     depends_on:
       db-agendamento:
         condition: service_healthy
       administrativo:
         condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   atendimento:
     restart: always
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     depends_on:
       db-atendimento:
         condition: service_healthy
       agendamento:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   gateway:
     restart: always
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "${GATEWAY_HOST_PORT:-8080}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   db_administrativo_data:
   db_agendamento_data:
   db_atendimento_data:
+  redis_data:

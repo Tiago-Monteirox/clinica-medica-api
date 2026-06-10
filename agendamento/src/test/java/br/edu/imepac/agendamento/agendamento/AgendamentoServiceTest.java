@@ -3,8 +3,7 @@ package br.edu.imepac.agendamento.agendamento;
 import br.edu.imepac.agendamento.agendamento.dto.AgendamentoRequest;
 import br.edu.imepac.agendamento.agendamento.dto.AgendamentoResponse;
 import br.edu.imepac.agendamento.agendamento.enums.StatusAgendamento;
-import br.edu.imepac.agendamento.client.AdministrativoClient;
-import br.edu.imepac.agendamento.client.ExistsResponse;
+import br.edu.imepac.agendamento.client.AdministrativoLookupService;
 import br.edu.imepac.commons.exceptions.BusinessException;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -29,7 +28,7 @@ class AgendamentoServiceTest {
     private AgendamentoRepository repository;
 
     @Mock
-    private AdministrativoClient administrativoClient;
+    private AdministrativoLookupService lookupService;
 
     @InjectMocks
     private AgendamentoService service;
@@ -37,7 +36,7 @@ class AgendamentoServiceTest {
     @Test
     void criarDeveLancar404QuandoPacienteNaoExiste() {
         AgendamentoRequest req = new AgendamentoRequest(99L, 1L, LocalDateTime.now().plusDays(7), null);
-        when(administrativoClient.pacienteExiste(99L)).thenReturn(new ExistsResponse(false));
+        when(lookupService.pacienteExiste(99L)).thenReturn(false);
 
         assertThrows(EntityNotFoundException.class, () -> service.criar(req));
         verify(repository, never()).save(any());
@@ -46,8 +45,8 @@ class AgendamentoServiceTest {
     @Test
     void criarDeveLancar404QuandoMedicoNaoExiste() {
         AgendamentoRequest req = new AgendamentoRequest(1L, 99L, LocalDateTime.now().plusDays(7), null);
-        when(administrativoClient.pacienteExiste(1L)).thenReturn(new ExistsResponse(true));
-        when(administrativoClient.medicoExiste(99L)).thenReturn(new ExistsResponse(false));
+        when(lookupService.pacienteExiste(1L)).thenReturn(true);
+        when(lookupService.medicoExiste(99L)).thenReturn(false);
 
         assertThrows(EntityNotFoundException.class, () -> service.criar(req));
         verify(repository, never()).save(any());
@@ -57,8 +56,8 @@ class AgendamentoServiceTest {
     void criarDeveLancar422QuandoHorarioConflitar() {
         LocalDateTime dh = LocalDateTime.now().plusDays(7);
         AgendamentoRequest req = new AgendamentoRequest(1L, 1L, dh, null);
-        when(administrativoClient.pacienteExiste(1L)).thenReturn(new ExistsResponse(true));
-        when(administrativoClient.medicoExiste(1L)).thenReturn(new ExistsResponse(true));
+        when(lookupService.pacienteExiste(1L)).thenReturn(true);
+        when(lookupService.medicoExiste(1L)).thenReturn(true);
         when(repository.existsByMedicoIdAndDataHoraAndStatusIn(eq(1L), eq(dh), any()))
                 .thenReturn(true);
 
@@ -70,8 +69,8 @@ class AgendamentoServiceTest {
     void criarComDadosValidosDevePersistir() {
         LocalDateTime dh = LocalDateTime.now().plusDays(7);
         AgendamentoRequest req = new AgendamentoRequest(1L, 1L, dh, "obs");
-        when(administrativoClient.pacienteExiste(1L)).thenReturn(new ExistsResponse(true));
-        when(administrativoClient.medicoExiste(1L)).thenReturn(new ExistsResponse(true));
+        when(lookupService.pacienteExiste(1L)).thenReturn(true);
+        when(lookupService.medicoExiste(1L)).thenReturn(true);
         when(repository.existsByMedicoIdAndDataHoraAndStatusIn(anyLong(), any(), any())).thenReturn(false);
         when(repository.save(any(AgendamentoEntity.class))).thenAnswer(inv -> {
             AgendamentoEntity e = inv.getArgument(0);

@@ -19,17 +19,21 @@ Sistema de gestão de clínica médica construído com arquitetura de microsserv
 cliente / frontend / curl
         |
         v
-gateway :8084 no host / :8080 no container
+gateway :8084/:8085  ←→  Redis (rate limit + blacklist JWT)
         |
         +--> administrativo :8081
-        +--> agendamento    :8082
+        +--> agendamento    :8082  ←→  Redis (cache paciente/médico)
         +--> atendimento    :8083
                  |
+                 v (assíncrono)
+            RabbitMQ: exchange clinica.events
+                 |
                  v
-            MySQL único em homologation
-            ├─ clinica_administrativo
-            ├─ clinica_agendamento
-            └─ clinica_atendimento
+            agendamento consome AtendimentoRegistradoEvent
+            → atualiza status para ATENDIDO
+
+HOM:  1 MySQL · 1 Redis · 1 RabbitMQ
+PROD: 3 MySQLs · 1 Redis (persistente) · 1 RabbitMQ
 ```
 
 Cada microsserviço tem **seu próprio schema lógico** em homologation. Em production local, a mesma codebase aponta para **três MySQLs dedicados independentes**; em produção real, esses containers seriam substituídos por DBaaS sem mudança no Java. A comunicação entre serviços é feita exclusivamente via HTTP/REST com **OpenFeign** declarativo. O Gateway é a única porta de entrada e valida autenticação JWT; a autorização fina por role fica nos microsserviços.
@@ -63,6 +67,8 @@ Cada microsserviço tem **seu próprio schema lógico** em homologation. Em prod
 | Mapeamento | ModelMapper | 3.2.x |
 | Validação | Bean Validation (Jakarta) | — |
 | Segurança | Spring Security + JJWT | 6.x / 0.12.x |
+| Cache | Spring Cache + Redis | — |
+| Mensageria | Spring AMQP + RabbitMQ | 3.13.x |
 | Testes (unit) | JUnit 5 + Mockito + AssertJ | — |
 | Testes | JUnit 5 + Mockito + MockMvc/WebMvcTest; Testcontainers preparado como dependência | — |
 | Build | Maven multi-módulo | 3.9 |
@@ -282,7 +288,9 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 18 | [Logging com SLF4J](docs/18-LOGGING.md) | Padronização com `@Slf4j` (Lombok), níveis de log, mapeamento por serviço |
 | 19 | [Sanity Check pré-apresentação](docs/19-SANITY-CHECK.md) | Runbook end-to-end: subir hom + prod, DBeaver, Dozzle, smoke. Roteiro de 15 min pra banca |
 | 20 | [API Console](docs/20-API-CONSOLE.md) | SPA estática com switch HOM/PROD ao vivo — arquitetura do toggle, CORS, cenário pra demonstração |
-| — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–17 concluídos. Validações executadas. Pendências.** |
+| 21 | [Redis](docs/21-REDIS.md) | Cache no `agendamento`, rate limit no gateway e blacklist JWT opcional — **implementado** |
+| 22 | [RabbitMQ](docs/22-RABBITMQ.md) | Eventos assíncronos `AtendimentoRegistradoEvent` entre `atendimento` → `agendamento` — **implementado** |
+| — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–22 concluídos. Validações executadas.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 
@@ -298,8 +306,10 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 | PASSO 15 | CI/CD com GitHub Actions: jobs `test`, `build`, `docker` (matrix nos 4 módulos) e `smoke`. Imagens publicadas no GHCR |
 | JaCoCo + Codecov | Plugin no parent pom com exclusões de glue code; upload Codecov no job `test`; badge no README |
 | Logging (SLF4J + `@Slf4j`) | Padronização em todos os módulos, níveis INFO/WARN/ERROR/DEBUG por contexto, `LOG_LEVEL_APP` por env var |
-| Cobertura de testes | 79 testes verdes em `mvn test` (commons 7 · administrativo 26 · atendimento 16 · agendamento 15 · gateway 15) |
+| Cobertura de testes | 87 testes verdes em `mvn test` (commons 7 · administrativo 26 · atendimento 17 · agendamento 22 · gateway 15) |
 | Production com 3 MySQLs reais | Database-per-service literal: `db-administrativo`, `db-agendamento`, `db-atendimento` em containers separados |
+| Redis (cache + rate limit + blacklist JWT) | Cache de validação `paciente-exists`/`medico-exists` no `agendamento`; rate limit no gateway; blacklist JWT via `jti` para logout real |
+| RabbitMQ (eventos assíncronos) | `AtendimentoRegistradoEvent` publicado pelo `atendimento`; consumido pelo `agendamento` que marca o agendamento como `ATENDIDO` (idempotente, com DLQ) |
 | API Console (frontend) | SPA estática com toggle HOM/PROD ao vivo, tokens por ambiente, cenários com cleanup automático |
 
 ### O que já está implementado
@@ -334,6 +344,19 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 - executa smoke test após o publish das imagens
 - upload de cobertura JaCoCo pra Codecov no job `test`
 - 6 badges no README (CI, Codecov, Java, Spring Boot, Docker Compose, MIT)
+
+**Redis (cache + rate limit + blacklist JWT)**
+- `AdministrativoLookupService` com `@Cacheable` nos caches `paciente-exists` e `medico-exists` do `agendamento` (TTL configurável via `CACHE_TTL`)
+- `RequestRateLimiter` no gateway nas rotas `/auth/**` e `/api/agendamentos/**` (token bucket por usuário/IP via Redis)
+- Blacklist de JWT por `jti`: `POST /auth/logout` no gateway revoga o token até expirar; `JtiBlacklistService` usando `ReactiveRedisTemplate`
+- Redis nos overlays hom (appendonly=no) e prod (appendonly=yes + volume persistente)
+
+**RabbitMQ (eventos assíncronos)**
+- Exchange `clinica.events` (topic) + queue `agendamento.atendimento-registrado` + DLQ
+- `AtendimentoEventPublisher` publica `AtendimentoRegistradoEvent` (com `eventId` UUID) após salvar atendimento
+- `AtendimentoRegistradoConsumer` consome o evento e marca agendamento como `ATENDIDO` (idempotente por estado)
+- Retry 3x com back-off exponencial antes de DLQ
+- RabbitMQ Management UI em `:15672` (hom) / `:15673` (prod) para demonstrar exchange/queue/DLQ ao vivo
 
 **API Console (`saasclinic-api-console/`)**
 - SPA estática React + Babel via CDN (sem build step)

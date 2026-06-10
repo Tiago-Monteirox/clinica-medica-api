@@ -28,6 +28,38 @@ services:
       start_period: 20s
     networks: [clinica-net]
 
+  # ── Redis ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "no"]
+    networks: [clinica-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── RabbitMQ ─────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_HOST_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clinica}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-clinica}
+    networks: [clinica-net]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # Expor portas dos serviços facilita Swagger e debug em homologation.
   administrativo:
     ports:
@@ -39,24 +71,48 @@ services:
   agendamento:
     ports:
       - "8082:8082"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-clinica}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-clinica}
     depends_on:
       mysql:
         condition: service_healthy
       administrativo:
         condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   atendimento:
     ports:
       - "8083:8083"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-clinica}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-clinica}
     depends_on:
       mysql:
         condition: service_healthy
       agendamento:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   gateway:
     ports:
       - "${GATEWAY_HOST_PORT:-8084}:8080"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   clinica_mysql_data:

@@ -87,18 +87,30 @@ Convenio (1) ─── (0..1) Paciente
 | Documentação | **SpringDoc OpenAPI** (`/swagger-ui.html` por serviço) | Padrão de mercado |
 | Logging HTTP | **Logbook** (Zalando) | Visibilidade do tráfego entre serviços |
 | Mapeamento DTO↔Entity | **ModelMapper** | Já adotado no commons existente |
-| Testes | **JUnit 5 + Mockito + MockMvc/WebMvcTest**; Testcontainers preparado | Suíte atual cobre services/controllers/gateway; integração com MySQL real fica como próxima evolução |
+| Testes | **JUnit 5 + Mockito + MockMvc/WebMvcTest**; Testcontainers preparado | 87 testes cobrindo services, controllers, gateway, publisher e consumer |
+| Cache | **Redis** via `@Cacheable` no `agendamento` | Reduz chamadas Feign repetidas para `paciente-exists`/`medico-exists`; TTL configurável |
+| Rate limit | **RequestRateLimiter** (Spring Cloud Gateway + Redis) | Token bucket por usuário/IP nas rotas `/auth/**` e `/api/agendamentos/**` |
+| Mensageria | **RabbitMQ** (exchange `clinica.events`, topologia topic) | Desacopla registro de atendimento da atualização de status do agendamento; DLQ para falhas |
 | CI/CD | **GitHub Actions** | Substitui Jenkins do guia original; nativo do GitHub |
 | Build | **Maven multi-módulo** | `commons` instalado uma vez, herdado por todos via `dependencyManagement` |
 
 ---
 
+## Evolução implementada (além do MVP original)
+
+Após o MVP, as seguintes funcionalidades foram adicionadas como demonstração de boas práticas:
+
+| Evolução | Módulos envolvidos | Documento |
+|---|---|---|
+| **Redis** — cache de validação `paciente-exists`/`medico-exists`, rate limit no gateway (token bucket), blacklist JWT por `jti` | `agendamento`, `gateway` | [`21-REDIS.md`](21-REDIS.md) |
+| **RabbitMQ** — evento `AtendimentoRegistradoEvent` publicado pelo `atendimento`; `agendamento` consome e marca status `ATENDIDO`; DLQ para falhas | `atendimento`, `agendamento` | [`22-RABBITMQ.md`](22-RABBITMQ.md) |
+
+---
+
 ## Não-objetivos (deliberadamente fora)
 
-- **Mensageria** (Kafka/RabbitMQ): comunicação síncrona via Feign é suficiente para o MVP.
 - **Service Discovery** (Eureka): URLs configuráveis via variável de ambiente bastam.
 - **Distributed tracing** (Zipkin/Jaeger): pode ser adicionado depois.
-- **Cache distribuído** (Redis): o volume de dados não justifica.
 - **Migrações de schema** (Flyway/Liquibase): `ddl-auto=update` é aceitável para o escopo didático.
 
 ---

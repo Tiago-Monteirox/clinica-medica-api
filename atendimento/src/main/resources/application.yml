@@ -20,6 +20,13 @@ spring:
       hibernate:
         format_sql: true
 
+  # ── RabbitMQ (publisher de AtendimentoRegistradoEvent) ──────
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:clinica}
+    password: ${RABBITMQ_PASSWORD:clinica}
+
   lifecycle:
     timeout-per-shutdown-phase: 30s
 

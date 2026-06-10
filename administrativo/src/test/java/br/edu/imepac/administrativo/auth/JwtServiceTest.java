@@ -33,6 +33,7 @@ class JwtServiceTest {
         assertThat(claims.get("nome", String.class)).isEqualTo("Administrador");
         assertThat(claims.getIssuedAt()).isNotNull();
         assertThat(claims.getExpiration()).isAfter(claims.getIssuedAt());
+        assertThat(claims.getId()).isNotBlank();
     }
 
     @Test

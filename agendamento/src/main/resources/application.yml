@@ -20,8 +20,44 @@ spring:
       hibernate:
         format_sql: true
 
+  # ── Cache (Redis) ───────────────────────────────────────────
+  cache:
+    type: ${CACHE_TYPE:redis}
+    redis:
+      time-to-live: ${CACHE_TTL:5m}
+      cache-null-values: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+
+  # ── RabbitMQ (consumer de AtendimentoRegistradoEvent) ───────
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:clinica}
+    password: ${RABBITMQ_PASSWORD:clinica}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1s
+          max-attempts: 3
+          multiplier: 2
+
   lifecycle:
     timeout-per-shutdown-phase: 30s
+
+# Topologia e nomes dos eventos consumidos pelo agendamento.
+# O publisher fica no atendimento; ambos compartilham exchange + routing key.
+clinica:
+  events:
+    exchange: ${CLINICA_EVENTS_EXCHANGE:clinica.events}
+    atendimento-registrado-routing-key: atendimento.registrado
+    agendamento-atendimento-registrado-queue: agendamento.atendimento-registrado
+    enabled: ${CLINICA_EVENTS_ENABLED:true}
 
 administrativo:
   url: ${ADMINISTRATIVO_URL:http://localhost:8081}

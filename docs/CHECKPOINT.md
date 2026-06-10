@@ -1,6 +1,6 @@
 # Checkpoint — clínica-médica-api
 
-> Última atualização: 2026-06-02. Snapshot consolidado do estado atual após concluir os **PASSOS 0–17**, entregar o API Console estático e validar a suíte local com `mvn test` (**79 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
+> Última atualização: 2026-06-10. Snapshot consolidado do estado atual após concluir os **PASSOS 0–22** (Redis + RabbitMQ) e validar a suíte local com `mvn test` (**87 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
 
 ---
 
@@ -27,6 +27,8 @@
 | 16 | Logging com SLF4J + Lombok | OK |
 | 17 | Cobertura ampliada | OK |
 | 20 | API Console estático para demonstração HOM/PROD | OK |
+| 21 | Redis: cache no agendamento, rate limit no gateway, blacklist JWT | OK |
+| 22 | RabbitMQ: AtendimentoRegistradoEvent, consumer idempotente, DLQ | OK |
 
 ---
 
@@ -36,14 +38,17 @@
 cliente / api-console / curl
         |
         v
-gateway :8084 HOM / :8085 PROD
+gateway :8084 HOM / :8085 PROD  ←→  Redis (rate limit + blacklist JWT)
         |
         +--> administrativo :8081
-        +--> agendamento    :8082
+        +--> agendamento    :8082  ←→  Redis (cache paciente/médico)
         +--> atendimento    :8083
+                 |
+                 v (assíncrono, RabbitMQ)
+            exchange clinica.events → agendamento → ATENDIDO
 
-HOM:  1 MySQL com 3 schemas
-PROD: 3 MySQLs dedicados em Compose local
+HOM:  1 MySQL + 1 Redis + 1 RabbitMQ (UI :15672)
+PROD: 3 MySQLs + 1 Redis (vol persistente) + 1 RabbitMQ (UI :15673)
 ```
 
 O gateway valida JWT e roteia. A autorização por role é aplicada nos microsserviços com `@PreAuthorize`. Entre serviços, a comunicação é HTTP/REST via OpenFeign.
@@ -177,11 +182,11 @@ Todas as checagens do roteiro foram rodadas e passaram (a saída é reproduzíve
 - Fluxo completo convênio → médico → paciente → agendamento → atendimento via gateway funcionando.
 
 ### Step 14/17 — testes automatizados
-- `mvn test` executa **79 testes**, 0 falhas, 0 erros (validado em 2026-06-02):
+- `mvn test` executa **87 testes**, 0 falhas, 0 erros (validado em 2026-06-10):
   - `commons`: `GlobalExceptionHandlerTest` (7)
   - `administrativo`: `ConvenioServiceTest` (8), `MedicoServiceTest` (5), `PacienteServiceTest` (5), `AuthServiceTest` (5), `JwtServiceTest` (3)
-  - `atendimento`: `AtendimentoControllerTest` (11), `AtendimentoServiceTest` (5)
-  - `agendamento`: `AgendamentoControllerTest` (9), `AgendamentoServiceTest` (6)
+  - `atendimento`: `AtendimentoControllerTest` (11), `AtendimentoServiceTest` (5), `AtendimentoEventPublisherTest` (1)
+  - `agendamento`: `AgendamentoControllerTest` (9), `AgendamentoServiceTest` (6), `AdministrativoLookupServiceTest` (4), `AtendimentoRegistradoConsumerTest` (3)
   - `gateway`: `JwtAuthenticationFilterTest` (10), `JwtUtilTest` (5)
 
 ---
@@ -681,10 +686,85 @@ Detalhes técnicos completos no [`docs/15-CICD-GITHUB-ACTIONS.md`](15-CICD-GITHU
 
 ---
 
+---
+
+## PASSO 21 — Redis: cache, rate limit e blacklist JWT (concluído em 2026-06-10)
+
+**Arquivos criados/alterados:**
+
+```
+agendamento/pom.xml                              # +starter-cache, +data-redis, +starter-amqp
+agendamento/.../AgendamentoApplication.java      # +@EnableCaching
+agendamento/.../client/AdministrativoLookupService.java  # novo: @Cacheable paciente-exists / medico-exists
+agendamento/.../agendamento/AgendamentoService.java      # usa lookupService em vez de Feign direto
+agendamento/src/main/resources/application.yml   # +spring.cache, spring.data.redis, clinica.events
+agendamento/src/test/.../AdministrativoLookupServiceTest.java  # novo: 4 testes
+
+gateway/pom.xml                                  # +data-redis-reactive
+gateway/.../config/RateLimitConfig.java          # novo: userOrIpKeyResolver
+gateway/.../security/JtiBlacklistService.java    # novo: revogar/estaRevogado via Redis reativo
+gateway/.../auth/LogoutController.java           # novo: POST /auth/logout
+gateway/.../security/JwtAuthenticationFilter.java  # +verificação blacklist opcional
+gateway/src/main/resources/application.yml       # +rate limit nas rotas auth/agendamento, +redis config
+gateway/src/test/.../JwtAuthenticationFilterTest.java  # construtor atualizado (blacklist=null)
+
+administrativo/.../auth/JwtService.java          # +.id(UUID) — claim jti para blacklist
+administrativo/src/test/.../JwtServiceTest.java  # +assertThat(claims.getId()).isNotBlank()
+
+docker-compose.homologation.yml                  # +redis + rabbitmq com healthcheck
+docker-compose.production.yml                    # +redis (persistente) + rabbitmq
+.env.homologation.example                        # +REDIS_HOST_PORT, RABBITMQ_*
+.env.production.example                          # +RABBITMQ_HOST_PORT, RABBITMQ_MANAGEMENT_HOST_PORT
+```
+
+**Definition of Done (doc 21):**
+- [x] `docker compose` sobe Redis saudável em homologation e production.
+- [x] `agendamento` usa Redis para cache de `pacienteExiste` e `medicoExiste`.
+- [x] TTL configurável via `CACHE_TTL` (default 5m).
+- [x] Gateway aplica rate limit e retorna `429` quando excedido.
+- [x] Blacklist JWT: `POST /auth/logout` revoga o `jti`; requests subsequentes com o mesmo token retornam `401`.
+- [x] Docs deixam claro que Redis é cache/infra, não fonte de verdade.
+
+---
+
+## PASSO 22 — RabbitMQ: AtendimentoRegistradoEvent (concluído em 2026-06-10)
+
+**Arquivos criados/alterados:**
+
+```
+atendimento/pom.xml                              # +starter-amqp
+atendimento/.../events/AtendimentoRegistradoEvent.java  # novo: contrato do evento
+atendimento/.../messaging/RabbitEventsConfig.java       # novo: Jackson2JsonMessageConverter
+atendimento/.../messaging/AtendimentoEventPublisher.java  # novo: publica evento após save
+atendimento/.../atendimento/AtendimentoService.java     # +eventPublisher.publicarAtendimentoRegistrado(saved)
+atendimento/src/main/resources/application.yml          # +spring.rabbitmq
+atendimento/src/test/.../AtendimentoServiceTest.java    # +@Mock AtendimentoEventPublisher
+atendimento/src/test/.../AtendimentoEventPublisherTest.java  # novo: 1 teste (capture + assert)
+
+agendamento/pom.xml                              # +starter-amqp (já incluído no passo 21)
+agendamento/.../events/AtendimentoRegistradoEvent.java  # novo: espelho do contrato
+agendamento/.../messaging/RabbitEventsConfig.java       # novo: exchange + queue + DLQ + binding
+agendamento/.../messaging/AtendimentoRegistradoConsumer.java  # novo: @RabbitListener idempotente
+agendamento/.../agendamento/enums/StatusAgendamento.java  # +ATENDIDO
+agendamento/src/test/.../AtendimentoRegistradoConsumerTest.java  # novo: 3 testes (consume/idempotência/DLQ)
+```
+
+**Definition of Done (doc 22):**
+- [x] RabbitMQ sobe saudável no Docker Compose (hom e prod).
+- [x] `atendimento` publica `AtendimentoRegistradoEvent` após registrar atendimento.
+- [x] `agendamento` consome o evento e atualiza o status para `ATENDIDO`.
+- [x] O consumidor é idempotente (status já `ATENDIDO` → descarta silenciosamente).
+- [x] Falhas vão para retry (3x, back-off 2x) e depois DLQ (`agendamento.atendimento-registrado.dlq`).
+- [x] RabbitMQ Management UI disponível em `:15672` (hom) / `:15673` (prod).
+- [x] `mvn test` passa com 87 testes, 0 falhas.
+
+---
+
 ## Próximo passo
 
 Possíveis frentes futuras:
 
 1. **MDC com `X-Request-Id`** para rastrear requisição entre serviços (doc 18, seção "Evoluções futuras").
 2. **Sanity check completo pré-apresentação**: ver [`19-SANITY-CHECK.md`](19-SANITY-CHECK.md).
-3. **Testes de integração com Testcontainers** (já tem a dependência) para subir um MySQL real e testar repositories de ponta a ponta.
+3. **Testes de integração com Testcontainers** (já tem a dependência) para subir MySQL/Redis/RabbitMQ real.
+4. **Outbox pattern** para garantia de publicação transacional no `atendimento`.

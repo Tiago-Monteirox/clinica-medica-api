@@ -225,6 +225,24 @@ Documentação completa em [`docs/20-API-CONSOLE.md`](docs/20-API-CONSOLE.md).
 
 ---
 
+## SaaS Web (interface operacional)
+
+[`saasclinic-web/`](saasclinic-web/) é a interface de produto para operar a clínica. Diferente do API Console, ela organiza o uso por telas: dashboard, convênios, médicos, pacientes, agendamentos, atendimentos e criação de usuários.
+
+```bash
+cd saasclinic-web
+python3 -m http.server 8000
+# abra http://localhost:8000
+
+# se :8000 estiver ocupada, :5174 também está liberada no CORS
+python3 -m http.server 5174
+# abra http://localhost:5174
+```
+
+Use o painel **Tweaks** para alternar HOM (`http://localhost:8084`) e PROD (`http://localhost:8085`). Tokens são separados por ambiente. A tela inicial também abre o API Console em `/api-console/`, por exemplo `http://localhost:5174/api-console/`. Documentação completa em [`docs/23-SAAS-WEB.md`](docs/23-SAAS-WEB.md).
+
+---
+
 ## Ambientes e CI/CD
 
 ### Docker por ambiente
@@ -290,6 +308,7 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 20 | [API Console](docs/20-API-CONSOLE.md) | SPA estática com switch HOM/PROD ao vivo — arquitetura do toggle, CORS, cenário pra demonstração |
 | 21 | [Redis](docs/21-REDIS.md) | Cache no `agendamento`, rate limit no gateway e blacklist JWT opcional — **implementado** |
 | 22 | [RabbitMQ](docs/22-RABBITMQ.md) | Eventos assíncronos `AtendimentoRegistradoEvent` entre `atendimento` → `agendamento` — **implementado** |
+| 23 | [SaaS Web](docs/23-SAAS-WEB.md) | Frontend operacional com toggle HOM/PROD, login, CRUDs, agenda e atendimentos |
 | — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–22 concluídos. Validações executadas.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).

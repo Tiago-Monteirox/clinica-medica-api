@@ -2,6 +2,7 @@ package br.edu.imepac.agendamento.agendamento;
 
 import br.edu.imepac.agendamento.agendamento.dto.AgendamentoRequest;
 import br.edu.imepac.agendamento.agendamento.dto.AgendamentoResponse;
+import br.edu.imepac.agendamento.agendamento.dto.AgendamentoUpdateRequest;
 import br.edu.imepac.agendamento.agendamento.enums.StatusAgendamento;
 import br.edu.imepac.commons.exceptions.EntityNotFoundException;
 import br.edu.imepac.commons.exceptions.handler.GlobalExceptionHandler;
@@ -141,20 +142,19 @@ class AgendamentoControllerTest {
 
     @Test
     void atualizar_retorna200ComEnvelope() throws Exception {
+        LocalDateTime dataHoraFutura = LocalDateTime.now().plusDays(7).withNano(0);
         var atualizado = AgendamentoResponse.builder()
                 .id(1L).pacienteId(10L).medicoId(20L)
-                .dataHora(LocalDateTime.of(2026, 7, 1, 10, 0))
+                .dataHora(dataHoraFutura)
                 .status(StatusAgendamento.CONFIRMADO).build();
         when(service.atualizar(eq(1L), any())).thenReturn(atualizado);
 
-        String body = """
-            {"dataHora":"2026-07-01T10:00:00","status":"CONFIRMADO"}
-            """;
+        var req = new AgendamentoUpdateRequest(dataHoraFutura, StatusAgendamento.CONFIRMADO, null);
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .put("/v1/agendamentos/1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(mapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("CONFIRMADO"));
     }

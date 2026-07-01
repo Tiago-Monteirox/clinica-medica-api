@@ -110,7 +110,7 @@ O frontend faz unwrap do envelope `ApiResponse<T>` e normaliza diferenças de DT
 | `saasclinic-web/` | interface de produto para operar a clínica |
 | `saasclinic-web/api-console/` | cópia estática do API Console acessível por `/api-console/` no mesmo servidor do SaaS Web |
 
-Os dois podem coexistir em portas separadas, mas o fluxo recomendado é servir o SaaS Web e acessar o console pela sub-rota `http://localhost:<porta>/api-console/`. Em desenvolvimento atual, isso fica em `http://localhost:5174/api-console/`.
+Os 2 podem coexistir em portas separadas, mas o fluxo recomendado é servir o SaaS Web e acessar o console pela sub-rota `http://localhost:<porta>/api-console/`. Em desenvolvimento atual, isso fica em `http://localhost:5174/api-console/`.
 
 ---
 

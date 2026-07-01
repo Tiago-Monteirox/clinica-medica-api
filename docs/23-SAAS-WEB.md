@@ -8,7 +8,7 @@ Localização: [`saasclinic-web/`](../saasclinic-web/) na raiz do projeto. O API
 
 ## Objetivo
 
-Plugar o frontend estático recebido em `SaasClinic_frontend_completo/dist/saasclinic-frontend` nas rotas reais do backend atual, mantendo o API Console separado.
+Plugar o front estático recebido em `SaasClinic_frontend_completo/dist/saasclinic-frontend` nas rotas reais do backend atual, mantendo o API Console separado.
 
 O app cobre:
 

@@ -77,7 +77,7 @@ function UsuariosPage() {
     <div>
       <window.PageHeader
         title="Usuários"
-        subtitle={liveMode ? "Backend atual permite criar usuários, mas não expõe listagem/edição/exclusão" : `${usuarios.length} contas cadastradas`}
+        subtitle={liveMode ? `${usuarios.length} contas cadastradas · edição/exclusão indisponíveis no backend` : `${usuarios.length} contas cadastradas`}
         actions={<window.Button variant="primary" icon="plus" onClick={openNew}>Novo usuário</window.Button>}
       />
       <window.FilterBar search={search} onSearch={setSearch} searchPlaceholder="Buscar por nome ou e-mail">

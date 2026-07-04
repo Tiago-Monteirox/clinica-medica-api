@@ -480,6 +480,14 @@ function atendimentoPayload(data) {
 function usuarioPayload(data) {
   return { nome: data.nome, email: data.email, senha: data.senha, role: data.role };
 }
+function normalizeUsuario(u) {
+  if (!u) return u;
+  return {
+    ...u,
+    ativo: u.ativo ?? true,
+    ultimoAcesso: u.ultimoAcesso || null,
+  };
+}
 function liveUnsupported(message) {
   const err = new Error(message);
   err.status = 501;
@@ -525,7 +533,7 @@ const Api = {
     remove: (id) => apiCall("atendimentos_delete", id),
   },
   usuarios: {
-    list:   async () => isLiveMode() ? [] : apiCall("usuarios_list"),
+    list:   async () => (await apiCall("usuarios_list")).map(normalizeUsuario),
     create: (data) => Api.auth.register(data),
     update: (id, data) => isLiveMode()
       ? liveUnsupported("O backend atual não expõe edição de usuários")

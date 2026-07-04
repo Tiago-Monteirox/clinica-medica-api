@@ -76,7 +76,7 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
           pacientes:    auth.role !== "PACIENTE",
           agendamentos: true,
           atendimentos: true,
-          usuarios:     auth.role === "ADMIN" && apiMode !== "live",
+          usuarios:     auth.role === "ADMIN",
         };
 
         const [c, m, p, ag, at, u] = await Promise.all([

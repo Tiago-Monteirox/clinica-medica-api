@@ -17,7 +17,7 @@ O app cobre:
 - CRUD de convênios, médicos e pacientes;
 - agendamentos com criação, confirmação, cancelamento e edição;
 - atendimentos com registro clínico;
-- criação de usuário via `POST /auth/register`.
+- listagem de usuários e criação de usuário via `POST /auth/register`.
 
 ---
 
@@ -82,7 +82,7 @@ Tokens e usuário logado são armazenados por ambiente no `localStorage`. Logout
 |---|---|
 | Login | `POST /auth/login` |
 | Logout | `POST /auth/logout` |
-| Usuários | `POST /auth/register` |
+| Usuários | `GET /api/admin/v1/usuarios`, `POST /auth/register` |
 | Convênios | `/api/admin/v1/convenios` |
 | Médicos | `/api/admin/v1/medicos` |
 | Pacientes | `/api/admin/v1/pacientes` |
@@ -95,7 +95,7 @@ O frontend faz unwrap do envelope `ApiResponse<T>` e normaliza diferenças de DT
 
 ## Ajustes importantes
 
-- O backend atual não expõe `GET/PUT/DELETE /usuarios`; por isso, em modo live a tela de usuários permite apenas criar usuário com `POST /auth/register`.
+- O backend atual expõe `GET /api/admin/v1/usuarios` e `POST /auth/register`; edição e exclusão de usuários ainda não existem em modo live.
 - O backend não tem `PATCH /agendamentos/{id}/status`; confirmação/cancelamento usam `PUT /api/agendamentos/v1/agendamentos/{id}` com `{ status }`.
 - Ao registrar atendimento, o frontend não força o status do agendamento. O `atendimento` publica evento RabbitMQ e o `agendamento` atualiza para `ATENDIDO` de forma assíncrona.
 - Acesso rápido por persona é completo no modo mock. No modo live, apenas ADMIN funciona com a seed padrão; outros perfis dependem de usuários reais criados no backend.
@@ -123,4 +123,4 @@ Os 2 podem coexistir em portas separadas, mas o fluxo recomendado é servir o Sa
 - [ ] CRUD de convênios, médicos e pacientes funciona com token ADMIN.
 - [ ] Agendamento cria, confirma e cancela usando rotas reais.
 - [ ] Atendimento registra prontuário e o status do agendamento muda depois do evento RabbitMQ.
-- [ ] Tela de usuários cria conta via `/auth/register` e deixa claro que lista/edição/exclusão não existem no backend atual.
+- [ ] Tela de usuários lista contas via `/api/admin/v1/usuarios`, cria conta via `/auth/register` e deixa claro que edição/exclusão não existem no backend atual.

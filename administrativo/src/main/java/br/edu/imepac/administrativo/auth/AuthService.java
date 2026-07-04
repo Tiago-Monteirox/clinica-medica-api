@@ -8,6 +8,9 @@ import br.edu.imepac.commons.exceptions.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Slf4j
 @Service
@@ -44,6 +47,14 @@ public class AuthService {
         log.info("Login OK: usuário id={} role={}", user.getId(), user.getRole());
 
         return new LoginResponse(token, expiresInSeconds, user.getEmail(), user.getRole());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioResponse> findAll() {
+        return usuarioRepository.findAll()
+                .stream()
+                .map(user -> new UsuarioResponse(user.getId(), user.getNome(), user.getEmail(), user.getRole()))
+                .toList();
     }
 
     public UsuarioResponse register(RegisterRequest request) {

@@ -35,7 +35,7 @@ Tokens e usuário logado são salvos por ambiente no `localStorage`.
 
 - `Mock` continua disponível para demonstração offline.
 - Em `Live`, o acesso rápido por persona só usa a seed ADMIN. Para outros perfis, crie usuários reais em `Usuários` e faça login com as credenciais criadas.
-- A tela de usuários usa apenas `POST /auth/register` no backend atual. Listagem, edição e exclusão permanecem indisponíveis em modo live.
+- A tela de usuários lista contas via `GET /api/admin/v1/usuarios` e cria novas contas via `POST /auth/register`. Edição e exclusão permanecem indisponíveis em modo live.
 - Ao registrar atendimento, o status do agendamento é atualizado assincronamente pelo RabbitMQ para `ATENDIDO`.
 
 API Console no mesmo servidor: [`/api-console/`](api-console/).

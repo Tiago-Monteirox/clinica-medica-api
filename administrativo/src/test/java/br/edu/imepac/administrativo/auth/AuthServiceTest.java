@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -94,6 +95,27 @@ class AuthServiceTest {
         assertThat(resp.email()).isEqualTo("maria@x.com");
         assertThat(resp.nome()).isEqualTo("Maria");
         assertThat(resp.role()).isEqualTo(Role.RECEPCIONISTA);
+    }
+
+    @Test
+    void findAll_retornaUsuariosSemSenhaHash() {
+        var medico = UsuarioEntity.builder()
+                .id(2L)
+                .nome("Dra. Ana")
+                .email("ana@clinica.com")
+                .senhaHash("$2a$10$medicohash")
+                .role(Role.MEDICO)
+                .build();
+        when(usuarioRepository.findAll()).thenReturn(List.of(admin, medico));
+
+        List<UsuarioResponse> usuarios = service.findAll();
+
+        assertThat(usuarios).hasSize(2);
+        assertThat(usuarios)
+                .extracting(UsuarioResponse::email)
+                .containsExactly("admin@clinica.com", "ana@clinica.com");
+        assertThat(usuarios.get(0).role()).isEqualTo(Role.ADMIN);
+        assertThat(usuarios.get(1).role()).isEqualTo(Role.MEDICO);
     }
 
     @Test

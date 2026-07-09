@@ -3,11 +3,11 @@
 [![CI](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api/branch/main/graph/badge.svg)](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api)
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?logo=springboot)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot)
 ![Docker Compose](https://img.shields.io/badge/Docker%20Compose-ready-2496ED?logo=docker)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Sistema de gestão de clínica médica construído com arquitetura de microsserviços. Java 21, Spring Boot 3.3, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose e pipeline em GitHub Actions.
+Sistema de gestão de clínica médica construído com arquitetura de microsserviços. Java 21, Spring Boot 4.1, MySQL 8, comunicação via OpenFeign, autenticação JWT, deploy com Docker Compose e pipeline em GitHub Actions.
 
 > Projeto integrador da disciplina. Esta é a base oficial — substitui versões anteriores no Desktop.
 
@@ -57,18 +57,19 @@ Cada microsserviço tem **seu próprio schema lógico** em homologation. Em prod
 | Categoria | Tecnologia | Versão |
 |---|---|---|
 | Linguagem | Java | 21 |
-| Framework | Spring Boot | 3.3.5 |
-| Microsserviços | Spring Cloud | 2023.0.x |
+| Framework | Spring Boot | 4.1.0 |
+| Microsserviços | Spring Cloud | 2025.1.x |
+| IA | Spring AI | 2.0.x |
 | Persistência | Spring Data JPA + Hibernate | — |
 | Banco | MySQL | 8 |
 | Comunicação | OpenFeign | Spring Cloud |
-| Documentação | SpringDoc OpenAPI (Swagger UI) | 2.x |
-| Logging HTTP | Logbook (Zalando) | 3.x |
+| Documentação | SpringDoc OpenAPI (Swagger UI) | 3.x |
+| Logging HTTP | Logbook (Zalando) | 4.x |
 | Mapeamento | ModelMapper | 3.2.x |
 | Validação | Bean Validation (Jakarta) | — |
-| Segurança | Spring Security + JJWT | 6.x / 0.12.x |
+| Segurança | Spring Security + JJWT | 7.x / 0.12.x |
 | Cache | Spring Cache + Redis | — |
-| Mensageria | Spring AMQP + RabbitMQ | 3.13.x |
+| Mensageria | Spring AMQP + RabbitMQ | gerenciado pelo BOM |
 | Testes (unit) | JUnit 5 + Mockito + AssertJ | — |
 | Testes | JUnit 5 + Mockito + MockMvc/WebMvcTest; Testcontainers preparado como dependência | — |
 | Build | Maven multi-módulo | 3.9 |
@@ -309,6 +310,7 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 21 | [Redis](docs/21-REDIS.md) | Cache no `agendamento`, rate limit no gateway e blacklist JWT opcional — **implementado** |
 | 22 | [RabbitMQ](docs/22-RABBITMQ.md) | Eventos assíncronos `AtendimentoRegistradoEvent` entre `atendimento` → `agendamento` — **implementado** |
 | 23 | [SaaS Web](docs/23-SAAS-WEB.md) | Frontend operacional com toggle HOM/PROD, login, CRUDs, agenda e atendimentos |
+| 24 | [Secretaria IA no WhatsApp](docs/24-SECRETARIA-IA.md) | Plano do novo módulo conversacional com WhatsApp Cloud API, Spring AI e agendamento confirmado |
 | — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–22 concluídos. Validações executadas.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
@@ -325,7 +327,7 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 | PASSO 15 | CI/CD com GitHub Actions: jobs `test`, `build`, `docker` (matrix nos 4 módulos) e `smoke`. Imagens publicadas no GHCR |
 | JaCoCo + Codecov | Plugin no parent pom com exclusões de glue code; upload Codecov no job `test`; badge no README |
 | Logging (SLF4J + `@Slf4j`) | Padronização em todos os módulos, níveis INFO/WARN/ERROR/DEBUG por contexto, `LOG_LEVEL_APP` por env var |
-| Cobertura de testes | 87 testes verdes em `mvn test` (commons 7 · administrativo 26 · atendimento 17 · agendamento 22 · gateway 15) |
+| Cobertura de testes | 89 testes verdes em `mvn clean test` (commons 7 · administrativo 28 · atendimento 17 · agendamento 22 · gateway 15) |
 | Production com 3 MySQLs reais | Database-per-service literal: `db-administrativo`, `db-agendamento`, `db-atendimento` em containers separados |
 | Redis (cache + rate limit + blacklist JWT) | Cache de validação `paciente-exists`/`medico-exists` no `agendamento`; rate limit no gateway; blacklist JWT via `jti` para logout real |
 | RabbitMQ (eventos assíncronos) | `AtendimentoRegistradoEvent` publicado pelo `atendimento`; consumido pelo `agendamento` que marca o agendamento como `ATENDIDO` (idempotente, com DLQ) |
@@ -344,8 +346,8 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 - `sql/init.sql` cria os 3 schemas e as tabelas sem inserir senha hardcoded
 
 **`pom.xml` raiz**
-- Java 21, Spring Boot 3.3.5, versões centralizadas: JJWT 0.12.6, SpringDoc 2.6.0, Logbook 3.9.0, Testcontainers 1.20.4
-- Spring Cloud BOM para OpenFeign e Gateway
+- Java 21, Spring Boot 4.1.0, versões centralizadas: JJWT 0.12.6, SpringDoc 3.0.3, Logbook 4.0.4, Testcontainers 1.20.4
+- Spring Cloud 2025.1.2 para OpenFeign e Gateway; Spring AI 2.0.0 preparado no BOM
 - `maven-surefire-plugin` 3.3.1 (suporte a JUnit 5)
 - `spring-boot-maven-plugin` com `repackage` para gerar JAR executável dos serviços
 

@@ -121,14 +121,14 @@ Adicione (sobre o que já existe):
 <dependency>
     <groupId>org.springdoc</groupId>
     <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-    <version>2.6.0</version>
+    <version>3.0.3</version>
 </dependency>
 
 <!-- Logbook -->
 <dependency>
     <groupId>org.zalando</groupId>
     <artifactId>logbook-spring-boot-starter</artifactId>
-    <version>3.9.0</version>
+    <version>4.0.4</version>
 </dependency>
 
 <!-- Spring Security + JWT -->
@@ -170,12 +170,13 @@ Adicione (sobre o que já existe):
 E no parent (`pom.xml` raiz), adicione:
 
 ```xml
-<properties>
-    <java.version>21</java.version>
-    <spring-boot.version>3.3.5</spring-boot.version>
-    <spring-cloud.version>2023.0.3</spring-cloud.version>
-    <testcontainers.version>1.20.4</testcontainers.version>
-</properties>
+    <properties>
+        <java.version>21</java.version>
+        <spring-boot.version>4.1.0</spring-boot.version>
+        <spring-cloud.version>2025.1.2</spring-cloud.version>
+        <spring-ai.version>2.0.0</spring-ai.version>
+        <testcontainers.version>1.20.4</testcontainers.version>
+    </properties>
 
 <dependencyManagement>
     <dependencies>
@@ -613,7 +614,12 @@ public class PacienteService {
         if (repository.existsByCpf(req.getCpf()))
             throw new BusinessException("CPF já cadastrado");
 
-        PacienteEntity entity = modelMapper.map(req, PacienteEntity.class);
+        PacienteEntity entity = new PacienteEntity();
+        entity.setNome(req.getNome());
+        entity.setEmail(req.getEmail());
+        entity.setCpf(req.getCpf());
+        entity.setTelefone(req.getTelefone());
+        entity.setDataNascimento(req.getDataNascimento());
         if (req.getConvenioId() != null) {
             entity.setConvenio(convenioService.findEntityById(req.getConvenioId()));
         }
@@ -647,6 +653,8 @@ public class PacienteService {
     }
 }
 ```
+
+> No código atual, o request de paciente não deve ser convertido diretamente para `PacienteEntity` via ModelMapper. O campo `convenioId` é uma FK de entrada e pode ser interpretado como `id` da entidade em mapeamentos implícitos; monte a entidade explicitamente e resolva o convênio separadamente.
 
 ### `PacienteController`
 

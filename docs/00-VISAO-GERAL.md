@@ -87,7 +87,7 @@ Convenio (1) ─── (0..1) Paciente
 | Documentação | **SpringDoc OpenAPI** (`/swagger-ui.html` por serviço) | Padrão de mercado |
 | Logging HTTP | **Logbook** (Zalando) | Visibilidade do tráfego entre serviços |
 | Mapeamento DTO↔Entity | **ModelMapper** | Já adotado no commons existente |
-| Testes | **JUnit 5 + Mockito + MockMvc/WebMvcTest**; Testcontainers preparado | 87 testes cobrindo services, controllers, gateway, publisher e consumer |
+| Testes | **JUnit 5 + Mockito + MockMvc/WebMvcTest**; Testcontainers preparado | 89 testes cobrindo services, controllers, gateway, publisher e consumer |
 | Cache | **Redis** via `@Cacheable` no `agendamento` | Reduz chamadas Feign repetidas para `paciente-exists`/`medico-exists`; TTL configurável |
 | Rate limit | **RequestRateLimiter** (Spring Cloud Gateway + Redis) | Token bucket por usuário/IP nas rotas `/auth/**` e `/api/agendamentos/**` |
 | Mensageria | **RabbitMQ** (exchange `clinica.events`, topologia topic) | Desacopla registro de atendimento da atualização de status do agendamento; DLQ para falhas |
@@ -104,6 +104,7 @@ Após o MVP, as seguintes funcionalidades foram adicionadas como demonstração 
 |---|---|---|
 | **Redis** — cache de validação `paciente-exists`/`medico-exists`, rate limit no gateway (token bucket), blacklist JWT por `jti` | `agendamento`, `gateway` | [`21-REDIS.md`](21-REDIS.md) |
 | **RabbitMQ** — evento `AtendimentoRegistradoEvent` publicado pelo `atendimento`; `agendamento` consome e marca status `ATENDIDO`; DLQ para falhas | `atendimento`, `agendamento` | [`22-RABBITMQ.md`](22-RABBITMQ.md) |
+| **Secretaria IA no WhatsApp** — módulo planejado para atendimento conversacional, Spring AI e criação de agendamentos com confirmação explícita | `secretaria-ia`, `gateway`, `administrativo`, `agendamento` | [`24-SECRETARIA-IA.md`](24-SECRETARIA-IA.md) |
 
 ---
 

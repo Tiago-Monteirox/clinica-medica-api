@@ -411,7 +411,7 @@ E no arquivo `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfigu
 br.edu.imepac.commons.config.CommonsAutoConfiguration
 ```
 
-> **O que isso significa?** Quando um microsserviço declara dependência do `commons`, o Spring Boot lê esse arquivo na fase de boot, instancia `CommonsAutoConfiguration`, e ela importa o handler e o ModelMapper sem precisar de `@ComponentScan` nos serviços. Padrão idiomático de bibliotecas Spring Boot 3.x (substitui o antigo `spring.factories`).
+> **O que isso significa?** Quando um microsserviço declara dependência do `commons`, o Spring Boot lê esse arquivo na fase de boot, instancia `CommonsAutoConfiguration`, e ela importa o handler e o ModelMapper sem precisar de `@ComponentScan` nos serviços. Padrão idiomático de bibliotecas Spring Boot 3+/4.x (substitui o antigo `spring.factories`).
 
 ---
 

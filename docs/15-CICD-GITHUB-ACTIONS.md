@@ -308,17 +308,17 @@ Pontos importantes:
 - Repos públicos no Codecov **não precisam** de `token`. Em repo privado, configurar `CODECOV_TOKEN` em `Settings → Secrets`.
 - A suíte local gera relatórios JaCoCo também para `commons` e `gateway`. O workflow atual envia explicitamente os relatórios dos três serviços de negócio; inclua `commons/target/site/jacoco/jacoco.xml` e `gateway/target/site/jacoco/jacoco.xml` no step do Codecov se quiser que o badge agregue todos os módulos.
 
-### Cobertura atual (atualizada após PASSO 17 — testes ampliados)
+### Cobertura atual (atualizada em 2026-07-09)
 
 | Módulo | Linhas instrumentadas | Cobertas | % | Testes |
 |---|---|---|---|---|
 | `commons` | 32 | 30 | **93.8%** | 7 |
-| `gateway` | 38 | 38 | **100.0%** | 15 |
-| `administrativo` | 210 | 112 | **53.3%** | 26 |
-| `agendamento` | 88 | 69 | **78.4%** | 15 |
-| `atendimento` | 70 | 57 | **81.4%** | 16 |
+| `gateway` | 94 | 60 | **63.8%** | 15 |
+| `administrativo` | 234 | 135 | **57.7%** | 28 |
+| `agendamento` | 134 | 93 | **69.4%** | 22 |
+| `atendimento` | 90 | 75 | **83.3%** | 17 |
 
-**Total local atual: 79 testes**. Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
+**Total local atual: 89 testes**. Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
 
 ### Exclusions do JaCoCo (por que e quais)
 
@@ -361,7 +361,7 @@ Note que `JwtAuthenticationFilter` do gateway (WebFlux) **não** está excluído
 | CI | `[![CI](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Tiago-Monteirox/clinica-medica-api/actions/workflows/ci.yml)` |
 | Codecov | `[![codecov](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api/branch/main/graph/badge.svg)](https://codecov.io/gh/Tiago-Monteirox/clinica-medica-api)` |
 | Java | `![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)` |
-| Spring Boot | `![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?logo=springboot)` |
+| Spring Boot | `![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot)` |
 | License | `[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)` |
 | Docker Compose | `![Docker Compose](https://img.shields.io/badge/Docker%20Compose-ready-2496ED?logo=docker)` |
 

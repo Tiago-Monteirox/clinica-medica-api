@@ -244,18 +244,20 @@ public KeyResolver userOrIpKeyResolver() {
 spring:
   cloud:
     gateway:
-      routes:
-        - id: agendamento
-          uri: ${AGENDAMENTO_URL:http://localhost:8082}
-          predicates:
-            - Path=/api/agendamentos/**
-          filters:
-            - StripPrefix=2
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userOrIpKeyResolver}"
-                redis-rate-limiter.replenishRate: 10
-                redis-rate-limiter.burstCapacity: 20
+      server:
+        webflux:
+          routes:
+            - id: agendamento
+              uri: ${AGENDAMENTO_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/agendamentos/**
+              filters:
+                - StripPrefix=2
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@userOrIpKeyResolver}"
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
 ```
 
 Para apresentação, limite por IP já é suficiente. Em produto real, prefira usuário/tenant quando houver multi-tenancy.

@@ -1,6 +1,6 @@
 # Checkpoint — clínica-médica-api
 
-> Última atualização: 2026-06-10. Snapshot consolidado do estado atual após concluir os **PASSOS 0–22** (Redis + RabbitMQ) e validar a suíte local com `mvn test` (**87 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
+> Última atualização: 2026-07-09. Snapshot consolidado do estado atual após concluir os **PASSOS 0–22** (Redis + RabbitMQ), atualizar a base para Spring Boot 4.1 / Spring AI 2.0 e validar a suíte local com `mvn clean test` (**89 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
 
 ---
 
@@ -127,7 +127,10 @@ O `commons` desabilita o repackage explicitamente (`<phase>none</phase>`) porque
 ### 5. ModelMapper substituído por builders no `AgendamentoService`
 O `AgendamentoRequest` tem `pacienteId` e `medicoId`. O ModelMapper interpretava ambos como candidatos para `setId()` do `AgendamentoEntity` e lançava `ConfigurationException` no boot do mapping. Solução: o service constrói a entidade com `AgendamentoEntity.builder()` e converte com builder manual no `toResponse`. Sem dependência do ModelMapper nesse fluxo.
 
-### 6. Feign do `atendimento` repassa o JWT
+### 6. `PacienteController` evita mapping implícito de `convenioId`
+O `PacienteRequest` tem `convenioId`, que é uma FK de entrada. Ao mapear o request direto para `PacienteEntity`, o ModelMapper pode interpretar o sufixo `Id` como o `id` da entidade e fazer o JPA tratar o paciente como detached, gerando 500 no cadastro. O controller agora monta a entidade explicitamente e passa o `convenioId` separado para o service.
+
+### 7. Feign do `atendimento` repassa o JWT
 O `atendimento` consome `GET /v1/agendamentos/{id}` do `agendamento`, que exige token. Foi adicionado um `RequestInterceptor` no `FeignConfig` do atendimento que extrai o `Authorization` da request atual via `RequestContextHolder` e propaga.
 
 ```java
@@ -135,17 +138,17 @@ O `atendimento` consome `GET /v1/agendamentos/{id}` do `agendamento`, que exige 
 public RequestInterceptor authForwardingInterceptor() { ... }
 ```
 
-### 7. `GlobalExceptionHandler` agora loga a exceção raiz
+### 8. `GlobalExceptionHandler` agora loga a exceção raiz
 Antes, qualquer 500 vinha mudo. Adicionado `log.error("Erro não tratado", ex)` no handler genérico. Ajudou a diagnosticar o problema do `-parameters` e do ModelMapper.
 
-### 8. Gateway na porta **8084** no host
+### 9. Gateway na porta **8084** no host
 A porta 8080 está em uso por um container `wordpress_app` na máquina. O `gateway` continua escutando 8080 dentro do container; o `docker-compose.yml` publica como `8084:8080`. Em um ambiente limpo, basta voltar para `8080:8080`.
 
-### 9. Módulo `gateway` adicionado ao reactor
+### 10. Módulo `gateway` adicionado ao reactor
 O parent pom original listava só `administrativo`, `atendimento`, `agendamento`, `commons`. `gateway` foi incluído. O `Dockerfile` também passou a copiar `gateway/pom.xml` e `gateway/src`.
 
-### 10. Spring Cloud BOM no parent
-Adicionado `spring-cloud-dependencies` versão `2023.0.3` no `dependencyManagement` para gerenciar `spring-cloud-starter-openfeign` (no agendamento e atendimento) e `spring-cloud-starter-gateway` (no gateway).
+### 11. Spring Cloud BOM no parent
+Adicionado `spring-cloud-dependencies` no `dependencyManagement` para gerenciar OpenFeign (no agendamento e atendimento) e Gateway. A base atual usa Spring Cloud `2025.1.2`; no gateway, o starter compatível é `spring-cloud-starter-gateway-server-webflux`.
 
 ---
 
@@ -179,12 +182,12 @@ Todas as checagens do roteiro foram rodadas e passaram (a saída é reproduzíve
 
 ### Step 13 — stack Docker
 - `docker compose up --build -d` sobe 5 containers (`mysql`, `administrativo`, `agendamento`, `atendimento`, `gateway`).
-- Fluxo completo convênio → médico → paciente → agendamento → atendimento via gateway funcionando.
+- Fluxo completo convênio → médico → paciente → agendamento → confirmação → atendimento via gateway funcionando, validado em 2026-07-09 na porta `8084`.
 
 ### Step 14/17 — testes automatizados
-- `mvn test` executa **87 testes**, 0 falhas, 0 erros (validado em 2026-06-10):
+- `mvn clean test` executa **89 testes**, 0 falhas, 0 erros (validado em 2026-07-09):
   - `commons`: `GlobalExceptionHandlerTest` (7)
-  - `administrativo`: `ConvenioServiceTest` (8), `MedicoServiceTest` (5), `PacienteServiceTest` (5), `AuthServiceTest` (5), `JwtServiceTest` (3)
+  - `administrativo`: `ConvenioServiceTest` (8), `MedicoServiceTest` (5), `PacienteServiceTest` (5), `PacienteControllerTest` (1), `AuthServiceTest` (6), `JwtServiceTest` (3)
   - `atendimento`: `AtendimentoControllerTest` (11), `AtendimentoServiceTest` (5), `AtendimentoEventPublisherTest` (1)
   - `agendamento`: `AgendamentoControllerTest` (9), `AgendamentoServiceTest` (6), `AdministrativoLookupServiceTest` (4), `AtendimentoRegistradoConsumerTest` (3)
   - `gateway`: `JwtAuthenticationFilterTest` (10), `JwtUtilTest` (5)
@@ -581,7 +584,7 @@ scripts/ci-smoke-test.sh               # smoke test que roda no job smoke do CI
 LICENSE                                # MIT 2026 Tiago Monteiro
 docs/15-CICD-GITHUB-ACTIONS.md         # PASSO C4 (JaCoCo) e C5 (badges) reescritos
                                        # com implementação real e snippets executáveis
-README.md                              # 6 badges: CI, Codecov, Java 21, Spring Boot 3.3.5,
+README.md                              # 6 badges: CI, Codecov, Java 21, Spring Boot 4.1.0,
                                        # Docker Compose ready, MIT
 ```
 
@@ -756,7 +759,7 @@ agendamento/src/test/.../AtendimentoRegistradoConsumerTest.java  # novo: 3 teste
 - [x] O consumidor é idempotente (status já `ATENDIDO` → descarta silenciosamente).
 - [x] Falhas vão para retry (3x, back-off 2x) e depois DLQ (`agendamento.atendimento-registrado.dlq`).
 - [x] RabbitMQ Management UI disponível em `:15672` (hom) / `:15673` (prod).
-- [x] `mvn test` passa com 87 testes, 0 falhas.
+- [x] `mvn clean test` passa com 89 testes, 0 falhas.
 
 ---
 

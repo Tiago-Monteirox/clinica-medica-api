@@ -63,7 +63,7 @@ gateway/
     <dependencies>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
 
         <!-- Spring Security reativo (necessário para WebFlux) -->
@@ -154,55 +154,57 @@ spring:
     name: gateway
   cloud:
     gateway:
-      routes:
-        # Login (público)
-        - id: auth
-          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
-          predicates:
-            - Path=/auth/**
+      server:
+        webflux:
+          routes:
+            # Login (público)
+            - id: auth
+              uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+              predicates:
+                - Path=/auth/**
 
-        # Administrativo
-        - id: administrativo
-          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
-          predicates:
-            - Path=/api/admin/**
-          filters:
-            - StripPrefix=2          # remove /api/admin → /
+            # Administrativo
+            - id: administrativo
+              uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/admin/**
+              filters:
+                - StripPrefix=2          # remove /api/admin → /
 
-        # Agendamento
-        - id: agendamento
-          uri: ${AGENDAMENTO_URL:http://localhost:8082}
-          predicates:
-            - Path=/api/agendamentos/**
-          filters:
-            - StripPrefix=2
+            # Agendamento
+            - id: agendamento
+              uri: ${AGENDAMENTO_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/agendamentos/**
+              filters:
+                - StripPrefix=2
 
-        # Atendimento
-        - id: atendimento
-          uri: ${ATENDIMENTO_URL:http://localhost:8083}
-          predicates:
-            - Path=/api/atendimentos/**
-          filters:
-            - StripPrefix=2
+            # Atendimento
+            - id: atendimento
+              uri: ${ATENDIMENTO_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/atendimentos/**
+              filters:
+                - StripPrefix=2
 
-        # Swagger UI por serviço (opcional, útil em dev)
-        - id: swagger-administrativo
-          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
-          predicates:
-            - Path=/docs/admin/**
-          filters:
-            - RewritePath=/docs/admin/(?<segment>.*), /$\{segment}
+            # Swagger UI por serviço (opcional, útil em dev)
+            - id: swagger-administrativo
+              uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+              predicates:
+                - Path=/docs/admin/**
+              filters:
+                - RewritePath=/docs/admin/(?<segment>.*), /$\{segment}
 
-      default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
 
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns: "*"
+                allowedMethods: "*"
+                allowedHeaders: "*"
+                allowCredentials: true
 
 logging:
   level:

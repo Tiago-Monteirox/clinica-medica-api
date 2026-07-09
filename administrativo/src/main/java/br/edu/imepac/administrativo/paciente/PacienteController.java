@@ -57,8 +57,7 @@ public class PacienteController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA')")
     @PostMapping
     public ResponseEntity<ApiResponse<PacienteResponse>> create(@Valid @RequestBody PacienteRequest request) {
-        PacienteEntity entity = modelMapper.map(request, PacienteEntity.class);
-        // convenioId é passado separado — o service resolve a FK
+        PacienteEntity entity = toEntity(request);
         PacienteEntity saved = pacienteService.save(entity, request.getConvenioId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(modelMapper.map(saved, PacienteResponse.class)));
@@ -69,7 +68,7 @@ public class PacienteController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<PacienteResponse>> update(@PathVariable Long id,
                                                                 @Valid @RequestBody PacienteRequest request) {
-        PacienteEntity entity = modelMapper.map(request, PacienteEntity.class);
+        PacienteEntity entity = toEntity(request);
         PacienteEntity updated = pacienteService.update(id, entity, request.getConvenioId());
         return ResponseEntity.ok(ApiResponse.success(modelMapper.map(updated, PacienteResponse.class)));
     }
@@ -80,5 +79,15 @@ public class PacienteController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         pacienteService.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private PacienteEntity toEntity(PacienteRequest request) {
+        PacienteEntity entity = new PacienteEntity();
+        entity.setNome(request.getNome());
+        entity.setEmail(request.getEmail());
+        entity.setCpf(request.getCpf());
+        entity.setTelefone(request.getTelefone());
+        entity.setDataNascimento(request.getDataNascimento());
+        return entity;
     }
 }

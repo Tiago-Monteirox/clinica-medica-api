@@ -98,14 +98,14 @@ agendamento/src/main/java/br/edu/imepac/agendamento/
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.6.0</version>
+            <version>3.0.3</version>
         </dependency>
 
         <!-- Logbook -->
         <dependency>
             <groupId>org.zalando</groupId>
             <artifactId>logbook-spring-boot-starter</artifactId>
-            <version>3.9.0</version>
+            <version>4.0.4</version>
         </dependency>
 
         <!-- JWT -->

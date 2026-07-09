@@ -188,7 +188,7 @@ commons/src/main/java/br/edu/imepac/commons/
     └── DateUtils.java
 ```
 
-**3. Registrar a auto-configuration (SPI do Spring Boot 3.x)**
+**3. Registrar a auto-configuration (SPI do Spring Boot 3+/4.x)**
 
 Crie o arquivo:
 ```
@@ -250,7 +250,7 @@ No `pom.xml` da raiz, adicione ao `<dependencyManagement>`:
 <dependency>
     <groupId>org.springframework.cloud</groupId>
     <artifactId>spring-cloud-dependencies</artifactId>
-    <version>2023.0.3</version>
+    <version>2025.1.2</version>
     <type>pom</type>
     <scope>import</scope>
 </dependency>
@@ -265,7 +265,7 @@ No `pom.xml` da raiz, adicione ao `<dependencyManagement>`:
 
 E ao bloco `<properties>`:
 ```xml
-<spring-cloud.version>2023.0.3</spring-cloud.version>
+<spring-cloud.version>2025.1.2</spring-cloud.version>
 <testcontainers.version>1.20.4</testcontainers.version>
 ```
 
@@ -278,7 +278,7 @@ Adicione ao `administrativo/pom.xml` (que já tem web, JPA, MySQL, commons, lomb
 <dependency>
     <groupId>org.springdoc</groupId>
     <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-    <version>2.6.0</version>
+    <version>3.0.3</version>
 </dependency>
 
 <!-- Spring Security + JWT -->
@@ -314,7 +314,7 @@ Adicione ao `administrativo/pom.xml` (que já tem web, JPA, MySQL, commons, lomb
 <dependency>
     <groupId>org.zalando</groupId>
     <artifactId>logbook-spring-boot-starter</artifactId>
-    <version>3.9.0</version>
+    <version>4.0.4</version>
 </dependency>
 
 <!-- Testcontainers -->
@@ -2846,7 +2846,7 @@ Adicionar `<module>gateway</module>` no `pom.xml` raiz.
 ```xml
 <dependency>
     <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-gateway</artifactId>
+    <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
 </dependency>
 <dependency>
     <groupId>org.springframework.boot</groupId>
@@ -2867,25 +2867,27 @@ spring:
     name: gateway
   cloud:
     gateway:
-      routes:
-        - id: auth
-          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
-          predicates: [Path=/auth/**]
+      server:
+        webflux:
+          routes:
+            - id: auth
+              uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+              predicates: [Path=/auth/**]
 
-        - id: administrativo
-          uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
-          predicates: [Path=/api/admin/**]
-          filters: [StripPrefix=2]
+            - id: administrativo
+              uri: ${ADMINISTRATIVO_URL:http://localhost:8081}
+              predicates: [Path=/api/admin/**]
+              filters: [StripPrefix=2]
 
-        - id: agendamento
-          uri: ${AGENDAMENTO_URL:http://localhost:8082}
-          predicates: [Path=/api/agendamentos/**]
-          filters: [StripPrefix=2]
+            - id: agendamento
+              uri: ${AGENDAMENTO_URL:http://localhost:8082}
+              predicates: [Path=/api/agendamentos/**]
+              filters: [StripPrefix=2]
 
-        - id: atendimento
-          uri: ${ATENDIMENTO_URL:http://localhost:8083}
-          predicates: [Path=/api/atendimentos/**]
-          filters: [StripPrefix=2]
+            - id: atendimento
+              uri: ${ATENDIMENTO_URL:http://localhost:8083}
+              predicates: [Path=/api/atendimentos/**]
+              filters: [StripPrefix=2]
 jwt:
   secret: ${JWT_SECRET:dev-secret-please-change-in-production-com-256-bits-no-minimo}
 ```

@@ -60,7 +60,7 @@ python3 -m http.server 5174
 
 Abra no browser: <http://localhost:5174>
 
-> **Importante**: a porta `5174` está na allow-list de CORS do gateway. Se servir em outra porta, ajuste `gateway/src/main/resources/application.yml` em `spring.cloud.gateway.globalcors`.
+> **Importante**: a porta `5174` está na allow-list de CORS do gateway. Se servir em outra porta, ajuste `gateway/src/main/resources/application.yml` em `spring.cloud.gateway.server.webflux.globalcors`.
 
 ### 3. Usar
 
@@ -112,21 +112,23 @@ O Spring Cloud Gateway tem `globalcors` ligado em `application.yml`:
 spring:
   cloud:
     gateway:
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins:
-              - "http://localhost:5174"
-              - "http://127.0.0.1:5174"
-              - "http://localhost:8000"
-              - "http://127.0.0.1:8000"
-              - "http://localhost:5500"
-              - "http://127.0.0.1:5500"
-            allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-            allowedHeaders: [Authorization, Content-Type, Accept, Origin, X-Requested-With, X-Request-Id]
-            exposedHeaders: [Authorization]
-            allowCredentials: true
-            maxAge: 3600
+      server:
+        webflux:
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:5174"
+                  - "http://127.0.0.1:5174"
+                  - "http://localhost:8000"
+                  - "http://127.0.0.1:8000"
+                  - "http://localhost:5500"
+                  - "http://127.0.0.1:5500"
+                allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+                allowedHeaders: [Authorization, Content-Type, Accept, Origin, X-Requested-With, X-Request-Id]
+                exposedHeaders: [Authorization]
+                allowCredentials: true
+                maxAge: 3600
 ```
 
 Allow-list explícita; sem usar `*` (que é incompatível com `allowCredentials: true`).

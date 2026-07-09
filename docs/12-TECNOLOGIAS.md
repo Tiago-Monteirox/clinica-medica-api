@@ -58,7 +58,7 @@ mvn help:effective-pom -pl commons   # mostra o POM efetivo (após herança)
 
 ## 2. Spring Boot
 
-**Versão:** 3.3.5 (compatível com Java 21 neste projeto).
+**Versão:** 4.1.0 (compatível com Java 21 neste projeto e alinhada ao Spring AI 2.x).
 
 **Papel:** framework que reduz boilerplate do Spring Framework via **convention over configuration** + auto-configuration.
 
@@ -375,7 +375,7 @@ spring:
 
 ## 12. SpringDoc OpenAPI (Swagger)
 
-**Dep:** `org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0`.
+**Dep:** `org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3`.
 
 **Endpoints expostos automaticamente:**
 
@@ -418,7 +418,7 @@ public class SwaggerConfig {}
 
 **Papel:** logging estruturado de requisições/respostas HTTP. Captura body, headers, tempo.
 
-**Dep:** `org.zalando:logbook-spring-boot-starter:3.9.0`.
+**Dep:** `org.zalando:logbook-spring-boot-starter:4.0.4`.
 
 **Saída exemplo:**
 

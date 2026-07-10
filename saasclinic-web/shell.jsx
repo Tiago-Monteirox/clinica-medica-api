@@ -32,6 +32,7 @@ const NAV_ITEMS_BY_ROLE = {
     { path: "/",              label: "Dashboard",     icon: "dashboard" },
     { path: "/agendamentos",  label: "Agendamentos",  icon: "calendar"  },
     { path: "/atendimentos",  label: "Atendimentos",  icon: "clipboard" },
+    { path: "/prontuarios",   label: "Prontuários",   icon: "clipboard" },
     { path: "/pacientes",     label: "Pacientes",     icon: "users"     },
     { path: "/medicos",       label: "Médicos",       icon: "stethoscope" },
     { path: "/convenios",     label: "Convênios",     icon: "credit"    },
@@ -48,6 +49,7 @@ const NAV_ITEMS_BY_ROLE = {
     { path: "/",              label: "Dashboard",     icon: "dashboard" },
     { path: "/minha-agenda",  label: "Minha agenda",  icon: "calendar"  },
     { path: "/atendimentos",  label: "Atendimentos",  icon: "clipboard" },
+    { path: "/prontuarios",   label: "Prontuários",   icon: "clipboard" },
     { path: "/pacientes",     label: "Pacientes",     icon: "users", readonly: true },
   ],
   PACIENTE: [

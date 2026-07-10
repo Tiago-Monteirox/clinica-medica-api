@@ -230,9 +230,12 @@ public enum StatusAgendamento {
     AGENDADO,
     CONFIRMADO,
     CANCELADO,
-    REALIZADO
+    REALIZADO,
+    ATENDIDO
 }
 ```
+
+`ATENDIDO` e usado pelo consumidor RabbitMQ quando o serviço `atendimento` publica `AtendimentoRegistradoEvent`. Em bancos existentes, `AgendamentoSchemaUpdater` ajusta a check constraint `ck_agendamentos_status` para incluir esse status, porque `ddl-auto=update` nao altera constraints antigas de enum automaticamente.
 
 ### `AgendamentoEntity`
 

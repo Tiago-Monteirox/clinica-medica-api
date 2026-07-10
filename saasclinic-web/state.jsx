@@ -41,6 +41,8 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
   const [pacientes, setPacientes]       = React.useState([]);
   const [agendamentos, setAgendamentos] = React.useState([]);
   const [atendimentos, setAtendimentos] = React.useState([]);
+  const [prontuarios, setProntuarios]   = React.useState([]);
+  const [templatesClinicos, setTemplatesClinicos] = React.useState([]);
   const [usuarios, setUsuarios]         = React.useState([]);
 
   const [initialLoading, setInitialLoading] = React.useState(true);
@@ -76,6 +78,7 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
           pacientes:    auth.role !== "PACIENTE",
           agendamentos: true,
           atendimentos: true,
+          clinico:      auth.role === "ADMIN" || auth.role === "MEDICO",
           usuarios:     auth.role === "ADMIN",
         };
 
@@ -87,12 +90,26 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
           window.Api.atendimentos.list().catch(() => []),
           wants.usuarios     ? window.Api.usuarios.list().catch(() => [])  : Promise.resolve([]),
         ]);
+        let prontuariosAtivos = [];
+        let templatesAtivos = [];
+        if (wants.clinico) {
+          const atendimentosVisiveis = (at || []).filter(item => auth.role !== "MEDICO" || item.medicoId === auth.linkedId);
+          const prontuarioResults = await Promise.allSettled(
+            atendimentosVisiveis.map(item => window.Api.prontuarios.byAtendimento(item.id))
+          );
+          prontuariosAtivos = prontuarioResults
+            .filter(result => result.status === "fulfilled" && result.value)
+            .map(result => result.value);
+          templatesAtivos = await window.Api.templatesClinicos.list().catch(() => []);
+        }
         if (cancelled) return;
         setConvenios(c || []);
         setMedicos(m || []);
         setPacientes(p || []);
         setAgendamentos(ag || []);
         setAtendimentos(at || []);
+        setProntuarios(prontuariosAtivos || []);
+        setTemplatesClinicos(templatesAtivos || []);
         setUsuarios(u || []);
         setInitialLoading(false);
       } catch (err) {
@@ -179,6 +196,34 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
         bump(); return res;
       },
     },
+    prontuarios: {
+      save: async (atendimentoId, data) => {
+        const res = await wrapMutation(() => window.Api.prontuarios.save(atendimentoId, data), null, null, "Falha ao salvar prontuário");
+        setProntuarios(prev => [res, ...prev.filter(item => item.id !== res.id && item.atendimentoId !== res.atendimentoId)]);
+        return res;
+      },
+      finalizar: async (id, data) => {
+        const res = await wrapMutation(() => window.Api.prontuarios.finalizar(id, data), null, null, "Falha ao finalizar prontuário");
+        setProntuarios(prev => [res, ...prev.filter(item => item.id !== res.id && item.atendimentoId !== res.atendimentoId)]);
+        return res;
+      },
+      historico: (pacienteId, incluirRascunhos = false) => window.Api.prontuarios.historico(pacienteId, incluirRascunhos),
+    },
+    templatesClinicos: {
+      create: async (data) => {
+        const res = await wrapMutation(() => window.Api.templatesClinicos.create(data), null, null, "Falha ao criar template");
+        setTemplatesClinicos(prev => [res, ...prev.filter(item => item.codigo !== res.codigo || item.id === res.id)]);
+        return res;
+      },
+    },
+    documentosClinicos: {
+      preview: (data) => window.Api.documentosClinicos.preview(data),
+      create: async (data) => {
+        const res = await wrapMutation(() => window.Api.documentosClinicos.create(data), null, null, "Falha ao emitir documento");
+        bump(); return res;
+      },
+      byProntuario: (prontuarioId) => window.Api.documentosClinicos.byProntuario(prontuarioId),
+    },
     usuarios: {
       upsert: async (data) => {
         const res = data.id
@@ -196,7 +241,8 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
     pacienteById:  (id) => pacientes.find(p => p.id === id),
     convenioById:  (id) => convenios.find(c => c.id === id),
     atendimentoByAgendamentoId: (aid) => atendimentos.find(a => a.agendamentoId === aid),
-  }), [medicos, pacientes, convenios, atendimentos]);
+    prontuarioByAtendimentoId: (atendimentoId) => prontuarios.find(p => p.atendimentoId === atendimentoId),
+  }), [medicos, pacientes, convenios, atendimentos, prontuarios]);
 
   // ---- Auth actions
   const login = React.useCallback(async (email, password) => {
@@ -237,7 +283,7 @@ function AppStateProvider({ children, initialRoute = "/login" }) {
     auth, login, loginAs, logout,
     route, navigate: setRoute,
     toasts, pushToast,
-    convenios, medicos, pacientes, agendamentos, atendimentos, usuarios,
+    convenios, medicos, pacientes, agendamentos, atendimentos, prontuarios, templatesClinicos, usuarios,
     api, lookup,
     personas: PERSONAS,
     initialLoading, initialError, reload: bump,
@@ -252,10 +298,12 @@ const useApp = () => React.useContext(AppStateContext);
 function can(role, action) {
   const matrix = {
     ADMIN: ["convenios.write","convenios.read","medicos.write","medicos.read","pacientes.write","pacientes.read",
-            "agendamentos.write","agendamentos.read","atendimentos.read","usuarios.write", "dashboard.full"],
+            "agendamentos.write","agendamentos.read","atendimentos.read","prontuarios.read","documentos.read",
+            "templatesClinicos.write","usuarios.write", "dashboard.full"],
     RECEPCIONISTA: ["convenios.read","medicos.read","pacientes.write","pacientes.read",
                     "agendamentos.write","agendamentos.read"],
-    MEDICO: ["medicos.read","pacientes.read","agendamentos.read","atendimentos.write","atendimentos.read","minhaAgenda"],
+    MEDICO: ["medicos.read","pacientes.read","agendamentos.read","atendimentos.write","atendimentos.read",
+             "prontuarios.read","prontuarios.write","documentos.read","documentos.write","minhaAgenda"],
     PACIENTE: ["meusAgendamentos","meusAtendimentos"],
   };
   return (matrix[role] || []).includes(action);

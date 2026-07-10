@@ -315,10 +315,10 @@ Pontos importantes:
 | `commons` | 32 | 30 | **93.8%** | 7 |
 | `gateway` | 94 | 60 | **63.8%** | 15 |
 | `administrativo` | 234 | 135 | **57.7%** | 28 |
-| `agendamento` | 134 | 93 | **69.4%** | 22 |
-| `atendimento` | 90 | 75 | **83.3%** | 17 |
+| `agendamento` | 155 | 111 | **71.6%** | 24 |
+| `atendimento` | 445 | 312 | **70.1%** | 26 |
 
-**Total local atual: 89 testes**. Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
+**Total local atual: 100 testes**. Para histórico das exclusions do JaCoCo (configs, DTOs, entities, Feign clients, Application main), ver bloco `<excludes>` no `pom.xml` raiz.
 
 ### Exclusions do JaCoCo (por que e quais)
 

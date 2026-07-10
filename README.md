@@ -228,7 +228,7 @@ Documentação completa em [`docs/20-API-CONSOLE.md`](docs/20-API-CONSOLE.md).
 
 ## SaaS Web (interface operacional)
 
-[`saasclinic-web/`](saasclinic-web/) é a interface de produto para operar a clínica. Diferente do API Console, ela organiza o uso por telas: dashboard, convênios, médicos, pacientes, agendamentos, atendimentos e criação de usuários.
+[`saasclinic-web/`](saasclinic-web/) é a interface de produto para operar a clínica. Diferente do API Console, ela organiza o uso por telas: dashboard, convênios, médicos, pacientes, agendamentos, atendimentos, prontuários, histórico clínico, documentos clínicos e criação de usuários.
 
 ```bash
 cd saasclinic-web
@@ -311,6 +311,7 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 22 | [RabbitMQ](docs/22-RABBITMQ.md) | Eventos assíncronos `AtendimentoRegistradoEvent` entre `atendimento` → `agendamento` — **implementado** |
 | 23 | [SaaS Web](docs/23-SAAS-WEB.md) | Frontend operacional com toggle HOM/PROD, login, CRUDs, agenda e atendimentos |
 | 24 | [Secretaria IA no WhatsApp](docs/24-SECRETARIA-IA.md) | Plano do novo módulo conversacional com WhatsApp Cloud API, Spring AI e agendamento confirmado |
+| 25 | [Prontuário e Histórico Clínico](docs/25-PRONTUARIO-HISTORICO.md) | Prontuário estruturado, histórico do paciente e templates clínicos versionados — **backend implementado** |
 | — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–22 concluídos. Validações executadas.** |
 
 Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
@@ -327,10 +328,11 @@ Diagramas PlantUML em [`docs/diagramas/`](docs/diagramas/).
 | PASSO 15 | CI/CD com GitHub Actions: jobs `test`, `build`, `docker` (matrix nos 4 módulos) e `smoke`. Imagens publicadas no GHCR |
 | JaCoCo + Codecov | Plugin no parent pom com exclusões de glue code; upload Codecov no job `test`; badge no README |
 | Logging (SLF4J + `@Slf4j`) | Padronização em todos os módulos, níveis INFO/WARN/ERROR/DEBUG por contexto, `LOG_LEVEL_APP` por env var |
-| Cobertura de testes | 89 testes verdes em `mvn clean test` (commons 7 · administrativo 28 · atendimento 17 · agendamento 22 · gateway 15) |
+| Cobertura de testes | 100 testes verdes em `mvn clean test` (commons 7 · administrativo 28 · atendimento 26 · agendamento 24 · gateway 15) |
 | Production com 3 MySQLs reais | Database-per-service literal: `db-administrativo`, `db-agendamento`, `db-atendimento` em containers separados |
 | Redis (cache + rate limit + blacklist JWT) | Cache de validação `paciente-exists`/`medico-exists` no `agendamento`; rate limit no gateway; blacklist JWT via `jti` para logout real |
 | RabbitMQ (eventos assíncronos) | `AtendimentoRegistradoEvent` publicado pelo `atendimento`; consumido pelo `agendamento` que marca o agendamento como `ATENDIDO` (idempotente, com DLQ) |
+| Prontuário e histórico clínico | Backend no `atendimento` com prontuário por atendimento, histórico por paciente, templates versionados e documentos clínicos |
 | API Console (frontend) | SPA estática com toggle HOM/PROD ao vivo, tokens por ambiente, cenários com cleanup automático |
 
 ### O que já está implementado

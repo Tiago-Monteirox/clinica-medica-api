@@ -95,6 +95,19 @@ const ENDPOINTS = {
   atendimentos_update: (id) => ({ m: "PUT",  p: `/api/atendimentos/v1/atendimentos/${id}` }),
   atendimentos_delete: (id) => ({ m: "DELETE", p: `/api/atendimentos/v1/atendimentos/${id}` }),
 
+  prontuarios_by_atendimento: (atendimentoId) => ({ m: "GET", p: `/api/atendimentos/v1/prontuarios/atendimento/${atendimentoId}` }),
+  prontuarios_upsert:         (atendimentoId) => ({ m: "PUT", p: `/api/atendimentos/v1/prontuarios/atendimento/${atendimentoId}` }),
+  prontuarios_finalizar:      (id) => ({ m: "POST", p: `/api/atendimentos/v1/prontuarios/${id}/finalizar` }),
+  prontuarios_historico:      (pacienteId, incluirRascunhos = false) => ({ m: "GET", p: `/api/atendimentos/v1/prontuarios/paciente/${pacienteId}/historico?incluirRascunhos=${incluirRascunhos}` }),
+
+  templates_clinicos_list:   () => ({ m: "GET", p: "/api/atendimentos/v1/templates-clinicos" }),
+  templates_clinicos_get:    (codigo) => ({ m: "GET", p: `/api/atendimentos/v1/templates-clinicos/${encodeURIComponent(codigo)}` }),
+  templates_clinicos_create: () => ({ m: "POST", p: "/api/atendimentos/v1/templates-clinicos" }),
+
+  documentos_clinicos_preview:       () => ({ m: "POST", p: "/api/atendimentos/v1/documentos-clinicos/preview" }),
+  documentos_clinicos_create:        () => ({ m: "POST", p: "/api/atendimentos/v1/documentos-clinicos" }),
+  documentos_clinicos_by_prontuario: (prontuarioId) => ({ m: "GET", p: `/api/atendimentos/v1/documentos-clinicos/prontuario/${prontuarioId}` }),
+
   usuarios_list:     () => ({ m: "GET",    p: "/api/admin/v1/usuarios" }),
   usuarios_create:   () => ({ m: "POST",   p: "/auth/register" }),
   usuarios_update:   (id) => ({ m: "PUT",  p: `/api/admin/v1/usuarios/${id}` }),
@@ -214,6 +227,9 @@ function initMockStore() {
     pacientes:    JSON.parse(JSON.stringify(window.SEED_PACIENTES)),
     agendamentos: JSON.parse(JSON.stringify(window.SEED_AGENDAMENTOS)),
     atendimentos: JSON.parse(JSON.stringify(window.SEED_ATENDIMENTOS)),
+    prontuarios:  JSON.parse(JSON.stringify(window.SEED_PRONTUARIOS || [])),
+    templatesClinicos: JSON.parse(JSON.stringify(window.SEED_TEMPLATES_CLINICOS || [])),
+    documentosClinicos: JSON.parse(JSON.stringify(window.SEED_DOCUMENTOS_CLINICOS || [])),
     usuarios:     JSON.parse(JSON.stringify(window.SEED_USUARIOS)),
   };
   return MOCK_STORE;
@@ -221,6 +237,134 @@ function initMockStore() {
 
 function nextId(arr) {
   return arr.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
+}
+
+function mockProntuarioFromAtendimento(store, atendimento, body = {}) {
+  return {
+    id: nextId(store.prontuarios),
+    atendimentoId: atendimento.id,
+    agendamentoId: atendimento.agendamentoId,
+    pacienteId: atendimento.pacienteId,
+    medicoId: atendimento.medicoId,
+    dataAtendimento: atendimento.dataAtendimento,
+    queixaPrincipal: body.queixaPrincipal || "",
+    historiaDoencaAtual: body.historiaDoencaAtual || "",
+    resumo: body.resumo || "",
+    diagnostico: body.diagnostico ?? atendimento.diagnostico ?? "",
+    conduta: body.conduta || "",
+    prescricao: body.prescricao ?? atendimento.prescricao ?? "",
+    observacoes: body.observacoes ?? atendimento.observacoes ?? "",
+    status: "RASCUNHO",
+    finalizadoEm: null,
+    createdAt: isoLocal(new Date()),
+    updatedAt: isoLocal(new Date()),
+  };
+}
+
+function mockHistoricoResponse(store, pacienteId, incluirRascunhos) {
+  const itens = store.prontuarios
+    .filter(p => p.pacienteId === Number(pacienteId))
+    .filter(p => incluirRascunhos || p.status === "FINALIZADO")
+    .sort((a, b) => String(b.dataAtendimento).localeCompare(String(a.dataAtendimento)))
+    .map(p => ({
+      prontuarioId: p.id,
+      atendimentoId: p.atendimentoId,
+      agendamentoId: p.agendamentoId,
+      pacienteId: p.pacienteId,
+      medicoId: p.medicoId,
+      dataAtendimento: p.dataAtendimento,
+      status: p.status,
+      resumo: p.resumo,
+      diagnostico: p.diagnostico,
+      conduta: p.conduta,
+      prescricao: p.prescricao,
+    }));
+  return { pacienteId: Number(pacienteId), incluindoRascunhos: !!incluirRascunhos, itens };
+}
+
+function mergeDeep(target, source) {
+  if (!source) return target;
+  for (const [key, incoming] of Object.entries(source)) {
+    const existing = target[key];
+    if (existing && incoming && typeof existing === "object" && typeof incoming === "object" &&
+        !Array.isArray(existing) && !Array.isArray(incoming)) {
+      mergeDeep(existing, incoming);
+    } else {
+      target[key] = incoming;
+    }
+  }
+  return target;
+}
+
+function valueAtPath(obj, path) {
+  return path.split(".").reduce((current, key) => {
+    if (current == null || typeof current !== "object" || !(key in current)) return "";
+    return current[key];
+  }, obj);
+}
+
+function renderMockTemplate(template, context) {
+  let rendered = template || "";
+  rendered = rendered.replace(/\{\{#\s*([a-zA-Z0-9_.]+)\s*}}([\s\S]*?)\{\{\/\s*\1\s*}}/g, (_, path, block) => {
+    const items = valueAtPath(context, path);
+    if (!Array.isArray(items)) return "";
+    return items.map(item => block.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*}}/g, (m, key) => {
+      const local = valueAtPath(item, key);
+      return local !== "" ? String(local ?? "") : String(valueAtPath(context, key) ?? "");
+    })).join("");
+  });
+  return rendered.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*}}/g, (_, path) => String(valueAtPath(context, path) ?? ""));
+}
+
+function htmlFromMarkdown(markdown) {
+  return `<pre>${String(markdown || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")}</pre>`;
+}
+
+function buildDocumentoContext(store, prontuario, extra = {}) {
+  const paciente = store.pacientes.find(p => p.id === prontuario.pacienteId);
+  const medico = store.medicos.find(m => m.id === prontuario.medicoId);
+  const atendimento = store.atendimentos.find(a => a.id === prontuario.atendimentoId);
+  const historico = mockHistoricoResponse(store, prontuario.pacienteId, false).itens.map(item => ({
+    ...item,
+    medicoNome: store.medicos.find(m => m.id === item.medicoId)?.nome || `Médico ${item.medicoId}`,
+  }));
+  const context = {
+    paciente: {
+      id: prontuario.pacienteId,
+      nome: paciente?.nome || `Paciente ${prontuario.pacienteId}`,
+      cpf: paciente?.cpf || "",
+      dataNascimento: paciente?.nascimento || paciente?.dataNascimento || "",
+    },
+    medico: {
+      id: prontuario.medicoId,
+      nome: medico?.nome || `Médico ${prontuario.medicoId}`,
+      crm: medico?.crm || "",
+    },
+    atendimento: {
+      id: prontuario.atendimentoId,
+      agendamentoId: prontuario.agendamentoId,
+      dataAtendimento: atendimento?.dataAtendimento || prontuario.dataAtendimento,
+    },
+    prontuario: { ...prontuario },
+    documento: {
+      dataEmissao: ymd(new Date()),
+      orientacoes: "",
+      diasAfastamento: "",
+      dataInicioAfastamento: "",
+      cid: "",
+      observacoes: "",
+      exames: [],
+    },
+    historico: {
+      periodoInicio: historico.length ? historico[historico.length - 1].dataAtendimento : "",
+      periodoFim: historico[0]?.dataAtendimento || "",
+      itens: historico,
+    },
+  };
+  return mergeDeep(context, extra);
 }
 
 async function mockRequest(method, path, body, token) {
@@ -363,6 +507,103 @@ async function mockRequest(method, path, body, token) {
       store.atendimentos[idx] = { ...store.atendimentos[idx], ...body, id };
       response = { success: true, data: store.atendimentos[idx] };
     }
+    // Prontuários e histórico clínico
+    else if (/^\/api\/atendimentos\/v1\/prontuarios\/atendimento\/\d+$/.test(path) && method === "GET") {
+      const atendimentoId = Number(path.split("/").pop());
+      const prontuario = store.prontuarios.find(p => p.atendimentoId === atendimentoId);
+      if (!prontuario) { status = 404; throw new Error("Prontuário não encontrado"); }
+      response = { success: true, data: prontuario };
+    }
+    else if (/^\/api\/atendimentos\/v1\/prontuarios\/atendimento\/\d+$/.test(path) && method === "PUT") {
+      const atendimentoId = Number(path.split("/").pop());
+      const atendimento = store.atendimentos.find(a => a.id === atendimentoId);
+      if (!atendimento) { status = 404; throw new Error("Atendimento não encontrado"); }
+      let prontuario = store.prontuarios.find(p => p.atendimentoId === atendimentoId);
+      if (prontuario?.status === "FINALIZADO") { status = 422; throw new Error("Prontuário finalizado não pode ser alterado"); }
+      if (!prontuario) {
+        prontuario = mockProntuarioFromAtendimento(store, atendimento, body);
+        store.prontuarios.unshift(prontuario);
+      } else {
+        Object.assign(prontuario, body, { updatedAt: isoLocal(new Date()) });
+      }
+      response = { success: true, data: prontuario };
+    }
+    else if (/^\/api\/atendimentos\/v1\/prontuarios\/\d+\/finalizar$/.test(path) && method === "POST") {
+      const parts = path.split("/");
+      const id = Number(parts[parts.length - 2]);
+      const prontuario = store.prontuarios.find(p => p.id === id);
+      if (!prontuario) { status = 404; throw new Error("Prontuário não encontrado"); }
+      if (prontuario.status === "FINALIZADO") { status = 422; throw new Error("Prontuário já está finalizado"); }
+      if (body?.resumo) prontuario.resumo = body.resumo;
+      if (!String(prontuario.resumo || "").trim()) { status = 422; throw new Error("Resumo do prontuário é obrigatório para finalizar"); }
+      prontuario.status = "FINALIZADO";
+      prontuario.finalizadoEm = isoLocal(new Date());
+      prontuario.updatedAt = prontuario.finalizadoEm;
+      response = { success: true, data: prontuario };
+    }
+    else if (/^\/api\/atendimentos\/v1\/prontuarios\/paciente\/\d+\/historico/.test(path) && method === "GET") {
+      const [base, query = ""] = path.split("?");
+      const parts = base.split("/");
+      const pacienteId = Number(parts[parts.length - 2]);
+      const params = new URLSearchParams(query);
+      response = { success: true, data: mockHistoricoResponse(store, pacienteId, params.get("incluirRascunhos") === "true") };
+    }
+    // Templates clínicos
+    else if (path === "/api/atendimentos/v1/templates-clinicos" && method === "GET") {
+      response = { success: true, data: store.templatesClinicos.filter(t => t.ativo) };
+    }
+    else if (/^\/api\/atendimentos\/v1\/templates-clinicos\/[^/]+$/.test(path) && method === "GET") {
+      const codigo = decodeURIComponent(path.split("/").pop()).toUpperCase();
+      const template = store.templatesClinicos.find(t => t.codigo === codigo && t.ativo);
+      if (!template) { status = 404; throw new Error("Template clínico não encontrado"); }
+      response = { success: true, data: template };
+    }
+    else if (path === "/api/atendimentos/v1/templates-clinicos" && method === "POST") {
+      const codigo = String(body.codigo || "").trim().toUpperCase();
+      store.templatesClinicos.forEach(t => { if (t.codigo === codigo) t.ativo = false; });
+      const versao = Math.max(0, ...store.templatesClinicos.filter(t => t.codigo === codigo).map(t => t.versao || 0)) + 1;
+      const created = { ...body, id: nextId(store.templatesClinicos), codigo, versao, ativo: true, createdAt: isoLocal(new Date()), updatedAt: isoLocal(new Date()) };
+      store.templatesClinicos.unshift(created);
+      status = 201; response = { success: true, data: created };
+    }
+    // Documentos clínicos
+    else if (path === "/api/atendimentos/v1/documentos-clinicos/preview" && method === "POST") {
+      const prontuario = store.prontuarios.find(p => p.id === Number(body.prontuarioId));
+      if (!prontuario) { status = 404; throw new Error("Prontuário não encontrado"); }
+      const template = store.templatesClinicos.find(t => t.codigo === String(body.templateCodigo || "").toUpperCase() && t.ativo);
+      if (!template) { status = 404; throw new Error("Template clínico não encontrado"); }
+      const markdown = renderMockTemplate(template.conteudoMarkdown, buildDocumentoContext(store, prontuario, body.dadosComplementares));
+      response = { success: true, data: {
+        prontuarioId: prontuario.id,
+        pacienteId: prontuario.pacienteId,
+        medicoId: prontuario.medicoId,
+        templateCodigo: template.codigo,
+        templateVersao: template.versao,
+        tipo: template.tipo,
+        conteudoMarkdown: markdown,
+        conteudoHtml: htmlFromMarkdown(markdown),
+        status: "RASCUNHO",
+      }};
+    }
+    else if (path === "/api/atendimentos/v1/documentos-clinicos" && method === "POST") {
+      const preview = await mockRequest("POST", "/api/atendimentos/v1/documentos-clinicos/preview", body, token);
+      const created = {
+        ...preview,
+        id: nextId(store.documentosClinicos),
+        status: "EMITIDO",
+        emitidoEm: isoLocal(new Date()),
+        createdAt: isoLocal(new Date()),
+        updatedAt: isoLocal(new Date()),
+      };
+      store.documentosClinicos.unshift(created);
+      status = 201; response = { success: true, data: created };
+    }
+    else if (/^\/api\/atendimentos\/v1\/documentos-clinicos\/prontuario\/\d+$/.test(path) && method === "GET") {
+      const prontuarioId = Number(path.split("/").pop());
+      response = { success: true, data: store.documentosClinicos
+        .filter(d => d.prontuarioId === prontuarioId)
+        .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))) };
+    }
     // Usuários
     else if (path === "/api/admin/v1/usuarios" && method === "GET") {
       response = { success: true, data: store.usuarios };
@@ -477,6 +718,37 @@ function atendimentoPayload(data) {
   if (copy.observacoes != null) payload.observacoes = copy.observacoes;
   return payload;
 }
+function prontuarioPayload(data) {
+  const copy = stripMeta(data);
+  return {
+    queixaPrincipal: copy.queixaPrincipal || "",
+    historiaDoencaAtual: copy.historiaDoencaAtual || "",
+    resumo: copy.resumo || "",
+    diagnostico: copy.diagnostico || "",
+    conduta: copy.conduta || "",
+    prescricao: copy.prescricao || "",
+    observacoes: copy.observacoes || "",
+  };
+}
+function finalizarProntuarioPayload(data) {
+  return { resumo: data?.resumo || "" };
+}
+function templateClinicoPayload(data) {
+  return {
+    codigo: data.codigo,
+    nome: data.nome,
+    tipo: data.tipo,
+    conteudoMarkdown: data.conteudoMarkdown,
+    schemaJson: data.schemaJson || "{}",
+  };
+}
+function documentoClinicoPayload(data) {
+  return {
+    prontuarioId: Number(data.prontuarioId),
+    templateCodigo: data.templateCodigo,
+    dadosComplementares: data.dadosComplementares || {},
+  };
+}
 function usuarioPayload(data) {
   return { nome: data.nome, email: data.email, senha: data.senha, role: data.role };
 }
@@ -531,6 +803,22 @@ const Api = {
     create: (data) => apiCall("atendimentos_create", atendimentoPayload(data)),
     update: (id, data) => apiCall("atendimentos_update", id, atendimentoPayload(data)),
     remove: (id) => apiCall("atendimentos_delete", id),
+  },
+  prontuarios: {
+    byAtendimento: (atendimentoId) => apiCall("prontuarios_by_atendimento", atendimentoId),
+    save: (atendimentoId, data) => apiCall("prontuarios_upsert", atendimentoId, prontuarioPayload(data)),
+    finalizar: (id, data) => apiCall("prontuarios_finalizar", id, finalizarProntuarioPayload(data)),
+    historico: (pacienteId, incluirRascunhos = false) => apiCall("prontuarios_historico", pacienteId, incluirRascunhos),
+  },
+  templatesClinicos: {
+    list: () => apiCall("templates_clinicos_list"),
+    get: (codigo) => apiCall("templates_clinicos_get", codigo),
+    create: (data) => apiCall("templates_clinicos_create", templateClinicoPayload(data)),
+  },
+  documentosClinicos: {
+    preview: (data) => apiCall("documentos_clinicos_preview", documentoClinicoPayload(data)),
+    create: (data) => apiCall("documentos_clinicos_create", documentoClinicoPayload(data)),
+    byProntuario: (prontuarioId) => apiCall("documentos_clinicos_by_prontuario", prontuarioId),
   },
   usuarios: {
     list:   async () => (await apiCall("usuarios_list")).map(normalizeUsuario),

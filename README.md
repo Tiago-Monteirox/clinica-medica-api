@@ -310,7 +310,7 @@ A documentação completa está em [`docs/`](docs/). Comece pelo índice abaixo:
 | 21 | [Redis](docs/21-REDIS.md) | Cache no `agendamento`, rate limit no gateway e blacklist JWT opcional — **implementado** |
 | 22 | [RabbitMQ](docs/22-RABBITMQ.md) | Eventos assíncronos `AtendimentoRegistradoEvent` entre `atendimento` → `agendamento` — **implementado** |
 | 23 | [SaaS Web](docs/23-SAAS-WEB.md) | Frontend operacional com toggle HOM/PROD, login, CRUDs, agenda e atendimentos |
-| 24 | [Secretaria IA no WhatsApp](docs/24-SECRETARIA-IA.md) | Plano do novo módulo conversacional com WhatsApp Cloud API, Spring AI e agendamento confirmado |
+| 24 | [Secretaria IA Conversacional](docs/24-SECRETARIA-IA.md) | Plano do novo módulo conversacional com Telegram no MVP, WhatsApp futuro, Spring AI e agendamento confirmado |
 | 25 | [Prontuário e Histórico Clínico](docs/25-PRONTUARIO-HISTORICO.md) | Prontuário estruturado, histórico do paciente e templates clínicos versionados — **backend implementado** |
 | — | [**CHECKPOINT**](docs/CHECKPOINT.md) | **Estado atual: PASSOS 0–22 concluídos. Validações executadas.** |
 

@@ -1,12 +1,12 @@
-# 24 - Secretaria IA no WhatsApp
+# 24 - Secretaria IA Conversacional
 
-> Modulo de atendimento conversacional para transformar o WhatsApp em uma secretaria virtual capaz de orientar pacientes e criar agendamentos com confirmacao explicita.
+> Modulo de atendimento conversacional para transformar um canal de mensagem em uma secretaria virtual capaz de orientar pacientes e criar agendamentos com confirmacao explicita. O MVP deve comecar pelo Telegram e manter o desenho preparado para um adaptador de WhatsApp depois.
 
 ---
 
 ## Objetivo
 
-Adicionar ao SaasClinic um canal de atendimento por WhatsApp onde o paciente conversa com uma IA para:
+Adicionar ao SaasClinic um canal de atendimento por Telegram onde o paciente conversa com uma IA para:
 
 - identificar-se por telefone, CPF ou dados basicos;
 - consultar medicos e horarios disponiveis;
@@ -14,7 +14,36 @@ Adicionar ao SaasClinic um canal de atendimento por WhatsApp onde o paciente con
 - confirmar os dados antes da criacao do agendamento;
 - ser encaminhado para atendimento humano quando o fluxo ficar ambíguo ou sensivel.
 
-O modulo nao substitui o servico `agendamento`. Ele funciona como um canal/orquestrador que conversa com WhatsApp, IA e os microsservicos internos.
+O modulo nao substitui o servico `agendamento`. Ele funciona como um canal/orquestrador que conversa com Telegram no MVP, IA e os microsservicos internos.
+
+---
+
+## Decisao de canal: Telegram primeiro
+
+A primeira implementacao deve usar Telegram, nao WhatsApp. Motivos:
+
+- menor atrito para desenvolvimento e homologacao: basta criar um bot e configurar token/webhook;
+- nao exige WhatsApp Business Account, numero vinculado, templates aprovados ou janela de atendimento;
+- permite validar o fluxo conversacional, Spring AI, tool calling, idempotencia e criacao de agendamento antes de lidar com as regras da Meta;
+- reduz custo e burocracia enquanto o produto ainda esta em fase de prova.
+
+**Decisao aplicada:** o core do modulo deve ser independente do canal. Telegram entra como primeiro adaptador de entrada/saida. WhatsApp entra depois como outro adaptador, reaproveitando conversa, IA, tools e orquestracao.
+
+Modelo conceitual:
+
+```text
+Canal externo
+  -> Adaptador Telegram no MVP
+  -> Adaptador WhatsApp no futuro
+      |
+      v
+Core secretaria-ia
+  -> estado conversacional
+  -> IA/tool calling
+  -> clientes administrativo/agendamento
+```
+
+Com isso, nomes de dominio devem evitar acoplamento ao WhatsApp. Use `canal`, `provider`, `provider_user_id`, `provider_chat_id` e `mensagens_canal` no banco. O telefone pode existir como dado opcional quando o usuario informar CPF ou compartilhar contato, mas nao deve ser a chave primaria da conversa no MVP Telegram.
 
 ---
 
@@ -52,14 +81,14 @@ A documentacao atual do Spring AI informa que **Spring AI 2.0.x suporta Spring B
 ## Arquitetura proposta
 
 ```
-Paciente WhatsApp
+Paciente Telegram
       |
       v
-Meta WhatsApp Cloud API
+Telegram Bot API
       |
       v
 API Gateway
-  /api/secretaria-ia/webhooks/whatsapp
+  /api/secretaria-ia/webhooks/telegram
       |
       v
 secretaria-ia (novo microsservico)
@@ -79,7 +108,7 @@ O `secretaria-ia` deve ser um bounded context proprio porque ele tem regras dife
 - idempotencia de mensagens;
 - auditoria minima de atendimento;
 - integracao com provedor de IA;
-- integracao com provedor de WhatsApp.
+- integracao com provedor de mensagem, inicialmente Telegram e futuramente WhatsApp.
 
 ---
 
@@ -87,10 +116,10 @@ O `secretaria-ia` deve ser um bounded context proprio porque ele tem regras dife
 
 Fluxos incluidos:
 
-1. receber mensagens de texto do WhatsApp;
-2. validar webhook da Meta;
-3. ignorar mensagens duplicadas por `message.id`;
-4. identificar paciente existente por telefone ou CPF;
+1. receber mensagens de texto do Telegram;
+2. validar o segredo configurado no webhook do Telegram;
+3. ignorar mensagens duplicadas por `provider_update_id`/`provider_message_id`;
+4. identificar paciente existente por CPF ou telefone informado no fluxo;
 5. listar medicos e horarios possiveis;
 6. coletar dados faltantes;
 7. pedir confirmacao explicita;
@@ -129,11 +158,16 @@ secretaria-ia/src/main/java/br/edu/imepac/secretariaia/
 │   ├── MensagemEntity.java
 │   ├── ConversaRepository.java
 │   └── ConversaService.java
-├── whatsapp/
-│   ├── WhatsAppWebhookController.java
-│   ├── WhatsAppWebhookVerifier.java
-│   ├── WhatsAppWebhookParser.java
-│   ├── WhatsAppClient.java
+├── canal/
+│   ├── CanalMensagemClient.java
+│   ├── CanalMensagemEntrada.java
+│   ├── CanalMensagemSaida.java
+│   └── CanalProvider.java
+├── telegram/
+│   ├── TelegramWebhookController.java
+│   ├── TelegramWebhookVerifier.java
+│   ├── TelegramWebhookParser.java
+│   ├── TelegramClient.java
 │   └── dto/
 ├── client/
 │   ├── AdministrativoClient.java
@@ -156,18 +190,17 @@ Base interna do servico:
 
 | Metodo | Rota | Auth | Uso |
 |---|---|---|---|
-| `GET` | `/webhooks/whatsapp` | token de verificacao Meta | validacao inicial do webhook |
-| `POST` | `/webhooks/whatsapp` | assinatura Meta | entrada de mensagens |
-| `GET` | `/v1/conversas/{telefone}` | JWT interno | auditoria futura |
+| `POST` | `/webhooks/telegram` | segredo do webhook | entrada de mensagens do Telegram |
+| `GET` | `/v1/conversas/{canal}/{providerUserId}` | JWT interno | auditoria futura |
 | `POST` | `/v1/conversas/{id}/handoff` | JWT interno | marcar atendimento humano |
 
 Rota no gateway:
 
 | Externo | Interno |
 |---|---|
-| `/api/secretaria-ia/webhooks/whatsapp` | `secretaria-ia:/webhooks/whatsapp` |
+| `/api/secretaria-ia/webhooks/telegram` | `secretaria-ia:/webhooks/telegram` |
 
-O filtro JWT do gateway deve liberar apenas o webhook publico. Rotas administrativas do `secretaria-ia` continuam com JWT.
+O filtro JWT do gateway deve liberar apenas o webhook publico do Telegram. Rotas administrativas do `secretaria-ia` continuam com JWT. Quando o WhatsApp entrar, ele deve receber rota propria, por exemplo `/api/secretaria-ia/webhooks/whatsapp`, usando o mesmo core conversacional.
 
 ---
 
@@ -182,7 +215,10 @@ Tabelas minimas:
 | Campo | Tipo | Observacao |
 |---|---|---|
 | `id` | BIGINT | PK |
-| `telefone` | VARCHAR(20) | numero WhatsApp normalizado |
+| `canal` | VARCHAR(20) | `TELEGRAM` no MVP; `WHATSAPP` no futuro |
+| `provider_user_id` | VARCHAR(128) | id do usuario no provedor |
+| `provider_chat_id` | VARCHAR(128) | id da conversa/chat no provedor |
+| `telefone` | VARCHAR(20) NULL | telefone normalizado quando informado/compartilhado |
 | `paciente_id` | BIGINT NULL | id logico do `administrativo` |
 | `estado` | VARCHAR(40) | estado atual do fluxo |
 | `intencao` | VARCHAR(40) | agendar, cancelar, duvida, humano |
@@ -191,13 +227,15 @@ Tabelas minimas:
 | `created_at` | DATETIME | auditoria |
 | `updated_at` | DATETIME | auditoria |
 
-### `mensagens_whatsapp`
+### `mensagens_canal`
 
 | Campo | Tipo | Observacao |
 |---|---|---|
 | `id` | BIGINT | PK |
 | `conversa_id` | BIGINT | FK local |
-| `provider_message_id` | VARCHAR(128) | unique, idempotencia |
+| `canal` | VARCHAR(20) | `TELEGRAM` no MVP |
+| `provider_update_id` | VARCHAR(128) | idempotencia de evento/update |
+| `provider_message_id` | VARCHAR(128) NULL | id da mensagem quando existir |
 | `direcao` | VARCHAR(10) | `IN` ou `OUT` |
 | `tipo` | VARCHAR(20) | texto no MVP |
 | `conteudo` | TEXT | conteudo sanitizado |
@@ -273,7 +311,7 @@ Guardrails:
 - nao dar diagnostico, prescricao ou orientacao clinica;
 - nao inventar disponibilidade;
 - nao expor dados de outros pacientes;
-- nao aceitar dados sensiveis desnecessarios pelo WhatsApp;
+- nao aceitar dados sensiveis desnecessarios pelo canal de mensagem;
 - nao prometer encaixe;
 - transferir para humano em urgencia, ambiguidade persistente ou conflito de dados.
 
@@ -289,8 +327,8 @@ Adicionar consultas de apoio:
 
 | Metodo | Rota | Uso |
 |---|---|---|
-| `GET` | `/v1/pacientes/telefone/{telefone}` | localizar paciente pelo WhatsApp |
-| `GET` | `/v1/pacientes/cpf/{cpf}` | localizar paciente quando telefone nao bater |
+| `GET` | `/v1/pacientes/telefone/{telefone}` | localizar paciente quando telefone for informado ou compartilhado |
+| `GET` | `/v1/pacientes/cpf/{cpf}` | localizar paciente quando telefone nao foi informado ou nao bater |
 | `GET` | `/v1/medicos` | ja existe, reutilizar |
 
 Criacao automatica de paciente deve ficar fora do MVP ou exigir confirmacao adicional, porque hoje `PacienteRequest` exige nome, email e CPF.
@@ -316,9 +354,35 @@ O calculo de disponibilidade deve ser deterministico no backend. A IA apenas apr
 
 ---
 
-## WhatsApp Cloud API
+## Telegram Bot API
 
-Configuracoes necessarias na Meta:
+Configuracoes necessarias no Telegram:
+
+- bot criado no BotFather;
+- token do bot configurado fora do codigo;
+- webhook apontando para o gateway;
+- segredo do webhook configurado;
+- politica de logs sem token, chat id sensivel ou conteudo excessivo.
+
+Variaveis de ambiente:
+
+```properties
+TELEGRAM_BOT_TOKEN=trocar
+TELEGRAM_WEBHOOK_SECRET=trocar
+TELEGRAM_API_BASE_URL=https://api.telegram.org
+```
+
+Seguranca do webhook:
+
+- `POST /webhooks/telegram` valida o segredo configurado para o webhook;
+- payload invalido deve retornar `401` ou `403`;
+- payload duplicado deve retornar `200` sem reprocessar.
+
+### WhatsApp Cloud API futura
+
+Quando o MVP estiver validado no Telegram, o WhatsApp deve entrar como segundo adaptador de canal. O core nao deve mudar; devem mudar apenas parser, verificacao de webhook, cliente de envio e variaveis do provedor.
+
+Configuracoes esperadas na fase WhatsApp:
 
 - app no Meta for Developers;
 - WhatsApp Business Account;
@@ -328,7 +392,7 @@ Configuracoes necessarias na Meta:
 - permissao/token para envio de mensagens;
 - templates aprovados para mensagens iniciadas fora da janela de atendimento.
 
-Variaveis de ambiente:
+Variaveis futuras:
 
 ```properties
 WHATSAPP_VERIFY_TOKEN=trocar
@@ -337,13 +401,6 @@ WHATSAPP_PHONE_NUMBER_ID=trocar
 WHATSAPP_APP_SECRET=trocar
 WHATSAPP_GRAPH_API_VERSION=versao_suportada_no_app_meta
 ```
-
-Seguranca do webhook:
-
-- `GET /webhooks/whatsapp` valida `hub.verify_token` e devolve `hub.challenge`;
-- `POST /webhooks/whatsapp` valida `X-Hub-Signature-256` com `WHATSAPP_APP_SECRET`;
-- payload invalido deve retornar `401` ou `403`;
-- payload duplicado deve retornar `200` sem reprocessar.
 
 ---
 
@@ -419,22 +476,31 @@ docker compose --env-file .env.homologation \
 2. Configurar banco proprio.
 3. Criar entidades de conversa/mensagem/agendamento IA.
 4. Criar clients Feign.
-5. Criar controller de webhook.
+5. Criar porta generica de canal.
+6. Criar adaptador Telegram com controller de webhook e cliente de envio.
 
 ### PASSO 3 - IA e orquestracao
 
 1. Criar prompt de sistema.
 2. Criar tools controladas.
 3. Implementar maquina de estados conversacional.
-4. Integrar envio de resposta ao WhatsApp.
+4. Integrar envio de resposta ao Telegram via porta de canal.
 
 ### PASSO 4 - Gateway e Docker
 
 1. Adicionar rota `/api/secretaria-ia/**`.
-2. Liberar webhook publico no filtro JWT.
+2. Liberar webhook publico `/api/secretaria-ia/webhooks/telegram` no filtro JWT.
 3. Adicionar servico no Compose.
 4. Adicionar variaveis nos `.env.example`.
 5. Adicionar SQL de init para `clinica_secretaria_ia`.
+
+### PASSO 5 - Adaptador WhatsApp futuro
+
+1. Criar pacote `whatsapp/` implementando a mesma porta de canal.
+2. Adicionar parser/verificador do webhook da Meta.
+3. Adicionar cliente de envio da WhatsApp Cloud API.
+4. Criar rota `/api/secretaria-ia/webhooks/whatsapp`.
+5. Reaproveitar os mesmos testes de core, adicionando testes especificos do provedor.
 
 ---
 
@@ -442,19 +508,17 @@ docker compose --env-file .env.homologation \
 
 Unitarios:
 
-- parser de payload do WhatsApp;
-- validacao de assinatura;
-- idempotencia por `provider_message_id`;
+- parser de payload do Telegram;
+- validacao do segredo do webhook;
+- idempotencia por `provider_update_id`;
 - transicoes de estado;
 - confirmacao explicita vs resposta ambigua;
 - handoff humano.
 
 Controller:
 
-- webhook `GET` com token correto;
-- webhook `GET` com token incorreto;
-- webhook `POST` com assinatura valida;
-- webhook `POST` com assinatura invalida;
+- webhook `POST` com segredo valido;
+- webhook `POST` com segredo invalido;
 - payload duplicado retorna `200` sem chamar IA.
 
 Integracao:
@@ -465,7 +529,7 @@ Integracao:
 
 Smoke manual:
 
-1. enviar mensagem "quero agendar uma consulta";
+1. enviar mensagem "quero agendar uma consulta" para o bot do Telegram;
 2. informar CPF quando solicitado;
 3. escolher medico/periodo;
 4. confirmar um horario;
@@ -478,7 +542,8 @@ Smoke manual:
 Cuidados minimos:
 
 - mascarar CPF e telefone em logs;
-- nao logar token da Meta nem chave da OpenAI;
+- nao logar token do Telegram, token da Meta nem chave da OpenAI;
+- tratar `provider_user_id`, `provider_chat_id`, telefone e CPF como dados sensiveis;
 - guardar apenas mensagens necessarias para auditoria;
 - configurar retencao de historico;
 - registrar quando houve confirmacao do paciente;
@@ -494,5 +559,7 @@ Cuidados minimos:
 - Spring AI Reference - Tool Calling: https://docs.spring.io/spring-ai/reference/api/tools.html
 - Spring Boot: https://spring.io/projects/spring-boot/
 - Spring Cloud version mapping: https://spring.io/projects/spring-cloud/
-- Meta WhatsApp Cloud API: https://developers.facebook.com/docs/whatsapp/cloud-api/
-- Meta WhatsApp Webhooks: https://developers.facebook.com/docs/graph-api/webhooks/
+- Telegram Bot API: https://core.telegram.org/bots/api
+- Telegram Bots: https://core.telegram.org/bots
+- Meta WhatsApp Cloud API futura: https://developers.facebook.com/docs/whatsapp/cloud-api/
+- Meta WhatsApp Webhooks futura: https://developers.facebook.com/docs/graph-api/webhooks/

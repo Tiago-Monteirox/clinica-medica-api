@@ -112,7 +112,7 @@ Após o MVP, as seguintes funcionalidades foram adicionadas como demonstração 
 
 | Modulo | Módulos envolvidos | Documento |
 |---|---|---|
-| **Secretaria IA no WhatsApp** — atendimento conversacional, Spring AI e criação de agendamentos com confirmação explícita | `secretaria-ia`, `gateway`, `administrativo`, `agendamento` | [`24-SECRETARIA-IA.md`](24-SECRETARIA-IA.md) |
+| **Secretaria IA Conversacional** — atendimento conversacional com Telegram no MVP, WhatsApp futuro, Spring AI e criação de agendamentos com confirmação explícita | `secretaria-ia`, `gateway`, `administrativo`, `agendamento` | [`24-SECRETARIA-IA.md`](24-SECRETARIA-IA.md) |
 
 ---
 

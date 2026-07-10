@@ -1,6 +1,6 @@
 # Checkpoint — clínica-médica-api
 
-> Última atualização: 2026-07-09. Snapshot consolidado do estado atual após concluir os **PASSOS 0–22** (Redis + RabbitMQ), atualizar a base para Spring Boot 4.1 / Spring AI 2.0 e validar a suíte local com `mvn clean test` (**89 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
+> Última atualização: 2026-07-09. Snapshot consolidado do estado atual após concluir os **PASSOS 0–22** (Redis + RabbitMQ), atualizar a base para Spring Boot 4.1 / Spring AI 2.0, implementar prontuário/histórico clínico no backend e validar a suíte local com `mvn clean test` (**100 testes verdes**). Mantém abaixo alguns trechos históricos do roteiro original, mas o status vigente está nesta seção inicial.
 
 ---
 
@@ -29,6 +29,7 @@
 | 20 | API Console estático para demonstração HOM/PROD | OK |
 | 21 | Redis: cache no agendamento, rate limit no gateway, blacklist JWT | OK |
 | 22 | RabbitMQ: AtendimentoRegistradoEvent, consumer idempotente, DLQ | OK |
+| 25 | Prontuário e histórico clínico no `atendimento` | OK |
 
 ---
 
@@ -64,7 +65,7 @@ O gateway valida JWT e roteia. A autorização por role é aplicada nos microsse
 | `production` | 3 MySQLs dedicados em Compose local; em produção real, substituíveis por DBaaS |
 | CI/CD | GitHub Actions com jobs `test`, `build`, `docker` e `smoke` |
 | Demonstração | API Console estático com toggle HOM/PROD, Dozzle e smoke scripts |
-| Frontend | API Console entregue; SPA de produto continua como evolução |
+| Frontend | API Console entregue; SaaS Web com telas operacionais e módulo de prontuários/histórico clínico |
 
 Documentos centrais:
 
@@ -182,14 +183,15 @@ Todas as checagens do roteiro foram rodadas e passaram (a saída é reproduzíve
 
 ### Step 13 — stack Docker
 - `docker compose up --build -d` sobe 5 containers (`mysql`, `administrativo`, `agendamento`, `atendimento`, `gateway`).
-- Fluxo completo convênio → médico → paciente → agendamento → confirmação → atendimento via gateway funcionando, validado em 2026-07-09 na porta `8084`.
+- Fluxo completo convênio → médico → paciente → agendamento → confirmação → atendimento → prontuário → histórico → documento clínico via gateway funcionando, validado em 2026-07-09 na porta `8084`.
+- Compatibilidade de schema no `agendamento`: `AgendamentoSchemaUpdater` ajusta a check constraint `ck_agendamentos_status` em bancos existentes para aceitar `ATENDIDO`.
 
 ### Step 14/17 — testes automatizados
-- `mvn clean test` executa **89 testes**, 0 falhas, 0 erros (validado em 2026-07-09):
+- `mvn clean test` executa **100 testes**, 0 falhas, 0 erros (validado em 2026-07-09):
   - `commons`: `GlobalExceptionHandlerTest` (7)
   - `administrativo`: `ConvenioServiceTest` (8), `MedicoServiceTest` (5), `PacienteServiceTest` (5), `PacienteControllerTest` (1), `AuthServiceTest` (6), `JwtServiceTest` (3)
-  - `atendimento`: `AtendimentoControllerTest` (11), `AtendimentoServiceTest` (5), `AtendimentoEventPublisherTest` (1)
-  - `agendamento`: `AgendamentoControllerTest` (9), `AgendamentoServiceTest` (6), `AdministrativoLookupServiceTest` (4), `AtendimentoRegistradoConsumerTest` (3)
+  - `atendimento`: `AtendimentoControllerTest` (11), `AtendimentoServiceTest` (5), `AtendimentoEventPublisherTest` (1), `ProntuarioControllerTest` (3), `ProntuarioServiceTest` (3), `DocumentoClinicoServiceTest` (1), `MarkdownTemplateRendererTest` (2)
+  - `agendamento`: `AgendamentoControllerTest` (9), `AgendamentoServiceTest` (6), `AdministrativoLookupServiceTest` (4), `AtendimentoRegistradoConsumerTest` (3), `AgendamentoSchemaUpdaterTest` (2)
   - `gateway`: `JwtAuthenticationFilterTest` (10), `JwtUtilTest` (5)
 
 ---
@@ -759,7 +761,7 @@ agendamento/src/test/.../AtendimentoRegistradoConsumerTest.java  # novo: 3 teste
 - [x] O consumidor é idempotente (status já `ATENDIDO` → descarta silenciosamente).
 - [x] Falhas vão para retry (3x, back-off 2x) e depois DLQ (`agendamento.atendimento-registrado.dlq`).
 - [x] RabbitMQ Management UI disponível em `:15672` (hom) / `:15673` (prod).
-- [x] `mvn clean test` passa com 89 testes, 0 falhas.
+- [x] `mvn clean test` passa com 100 testes, 0 falhas.
 
 ---
 

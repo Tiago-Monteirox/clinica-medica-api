@@ -304,7 +304,7 @@ public class AtendimentoRegistradoConsumer {
 }
 ```
 
-Se o enum atual ainda não tiver `ATENDIDO`, adicionar esse status ou mapear para o status equivalente já existente.
+Se o enum atual ainda não tiver `ATENDIDO`, adicionar esse status ou mapear para o status equivalente já existente. Em bancos MySQL criados antes desse status, `AgendamentoSchemaUpdater` recria a check constraint `ck_agendamentos_status` com `ATENDIDO`, porque `ddl-auto=update` nao altera automaticamente constraints antigas de enum.
 
 ---
 

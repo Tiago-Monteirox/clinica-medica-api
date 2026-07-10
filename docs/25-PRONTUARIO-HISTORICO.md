@@ -1,6 +1,6 @@
 # 25 - Prontuario e Historico Clinico
 
-> Proximo modulo clinico para evoluir o servico `atendimento` com prontuario estruturado, historico longitudinal do paciente e templates versionados para prontuario, historico, prescricao, atestado e solicitacao de exames.
+> Modulo clinico implementado no backend do servico `atendimento` com prontuario estruturado, historico longitudinal do paciente e templates versionados para prontuario, historico, prescricao, atestado e solicitacao de exames.
 
 ---
 
@@ -80,6 +80,28 @@ Permitir que o sistema:
 3. preserve snapshots de templates usados em documentos;
 4. controle permissao de leitura/escrita de conteudo sensivel;
 5. mantenha base para futura geracao de PDF e assinatura.
+
+---
+
+## Estado da implementacao
+
+Implementado no backend:
+
+- entidades JPA `ProntuarioEntity`, `TemplateClinicoEntity` e `DocumentoClinicoEntity`;
+- services de prontuario, templates, documentos e renderizacao Markdown;
+- endpoints REST para prontuario, historico, templates e documentos;
+- seed dos seis templates iniciais no boot do `atendimento`;
+- testes unitarios e WebMvcTest para regras principais;
+- API Console atualizado com os endpoints do modulo.
+
+Ainda fora do MVP:
+
+- PDF com layout final;
+- assinatura digital;
+- upload/anexos reais;
+- acesso do paciente ao prontuario;
+- resumo por IA/RAG;
+- tela operacional dedicada no SaaS Web.
 
 ---
 
@@ -580,15 +602,17 @@ Fluxo integrado via Gateway:
 
 ## Definition of Done
 
-- [ ] `ProntuarioEntity` criada no `atendimento`.
-- [ ] `TemplateClinicoEntity` e `DocumentoClinicoEntity` criadas.
-- [ ] Seed dos templates iniciais.
-- [ ] Endpoints de prontuario, historico, templates e documentos no Swagger.
-- [ ] Gateway roteando sem nova rota especial, via `/api/atendimentos/**`.
-- [ ] Roles revisadas: escrita clinica apenas `MEDICO`; leitura clinica `MEDICO`/`ADMIN`.
-- [ ] Testes unitarios e WebMvcTest cobrindo regras principais.
-- [ ] Roteiro feliz no API Console atualizado com prontuario + historico.
-- [ ] Docs `06-ATENDIMENTO.md` e `20-API-CONSOLE.md` atualizadas na implementacao.
+- [x] `ProntuarioEntity` criada no `atendimento`.
+- [x] `TemplateClinicoEntity` e `DocumentoClinicoEntity` criadas.
+- [x] Seed dos templates iniciais.
+- [x] Endpoints de prontuario, historico, templates e documentos no Swagger.
+- [x] Gateway roteando sem nova rota especial, via `/api/atendimentos/**`.
+- [x] Roles revisadas: escrita clinica apenas `MEDICO`; leitura clinica `MEDICO`/`ADMIN`.
+- [x] Testes unitarios e WebMvcTest cobrindo regras principais.
+- [x] API Console atualizado com endpoints de prontuario, historico, templates e documentos.
+- [x] Docs `06-ATENDIMENTO.md` atualizada na implementacao.
+- [x] Fluxo via gateway validado com usuario `MEDICO`: atendimento, prontuario, historico, templates e documento clinico.
+- [ ] Roteiro feliz completo no API Console com usuario `MEDICO` seedado.
 
 ---
 

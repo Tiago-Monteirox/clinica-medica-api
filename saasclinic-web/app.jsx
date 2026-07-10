@@ -11,6 +11,7 @@ function App() {
     "/meus-agendamentos": window.MeusAgendamentosPage,
     "/atendimentos":      window.AtendimentosPage,
     "/meus-atendimentos": window.MeusAtendimentosPage,
+    "/prontuarios":       window.ProntuariosPage,
     "/pacientes":         window.PacientesPage,
     "/medicos":           window.MedicosPage,
     "/convenios":         window.ConveniosPage,

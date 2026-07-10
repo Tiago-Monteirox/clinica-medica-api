@@ -109,6 +109,208 @@ const SEED_ATENDIMENTOS = [
     prescricao: "Repetir colpocitológico em 12 meses.", observacoes: "" },
 ];
 
+const SEED_PRONTUARIOS = SEED_ATENDIMENTOS.map((a, idx) => ({
+  id: idx + 1,
+  atendimentoId: a.id,
+  agendamentoId: a.agendamentoId,
+  pacienteId: a.pacienteId,
+  medicoId: a.medicoId,
+  dataAtendimento: a.dataAtendimento,
+  queixaPrincipal: [
+    "Retorno para avaliação de controle cardiovascular.",
+    "Avaliação preventiva anual.",
+    "Febre baixa e coriza há 48 horas.",
+    "Dor lombar após esforço físico.",
+    "Prurido e lesões em flexuras.",
+    "Consulta ginecológica de rotina.",
+  ][idx] || "",
+  historiaDoencaAtual: [
+    "Paciente refere boa adesão medicamentosa, sem dor torácica ou dispneia aos esforços habituais.",
+    "Paciente assintomática, comparece para acompanhamento de rotina.",
+    "Quadro iniciado há dois dias, sem vômitos, sem sinais de desidratação.",
+    "Dor localizada em região lombar baixa, sem irradiação e sem déficit motor.",
+    "Lesões recorrentes, piora após banho quente e uso de sabonete perfumado.",
+    "Sem queixas no momento, ciclo regular e exames prévios sem alterações relevantes.",
+  ][idx] || "",
+  resumo: [
+    "Controle pressórico adequado e exame complementar sem sinais de isquemia.",
+    "Avaliação cardiológica sem achados patológicos.",
+    "Quadro compatível com infecção viral autolimitada.",
+    "Lombalgia mecânica sem sinais neurológicos de alarme.",
+    "Dermatite atópica leve, sem sinais de infecção secundária.",
+    "Exame ginecológico de rotina sem alterações.",
+  ][idx] || a.diagnostico,
+  diagnostico: a.diagnostico,
+  conduta: [
+    "Manter tratamento atual, reforçar atividade física e retorno programado.",
+    "Manter acompanhamento anual.",
+    "Tratamento sintomático e orientação de sinais de alarme.",
+    "Analgesia, relaxante muscular noturno e fisioterapia.",
+    "Hidratação cutânea intensiva e corticoide tópico em crises.",
+    "Rotina preventiva anual.",
+  ][idx] || "",
+  prescricao: a.prescricao,
+  observacoes: a.observacoes,
+  status: "FINALIZADO",
+  finalizadoEm: a.dataAtendimento,
+  createdAt: a.dataAtendimento,
+  updatedAt: a.dataAtendimento,
+}));
+
+const SEED_TEMPLATES_CLINICOS = [
+  {
+    id: 1,
+    codigo: "PRONTUARIO_CONSULTA_GERAL",
+    nome: "Prontuário de consulta geral",
+    tipo: "PRONTUARIO",
+    versao: 1,
+    ativo: true,
+    schemaJson: "{}",
+    conteudoMarkdown: `# Prontuario de Consulta
+
+Paciente: {{paciente.nome}}
+Data do atendimento: {{atendimento.dataAtendimento}}
+Medico: {{medico.nome}} - CRM {{medico.crm}}
+
+## Queixa principal
+
+{{prontuario.queixaPrincipal}}
+
+## Historia da doenca atual
+
+{{prontuario.historiaDoencaAtual}}
+
+## Resumo
+
+{{prontuario.resumo}}
+
+## Diagnostico
+
+{{prontuario.diagnostico}}
+
+## Conduta
+
+{{prontuario.conduta}}
+
+## Prescricao
+
+{{prontuario.prescricao}}
+
+## Observacoes
+
+{{prontuario.observacoes}}`,
+  },
+  {
+    id: 2,
+    codigo: "HISTORICO_PACIENTE_RESUMIDO",
+    nome: "Histórico do paciente resumido",
+    tipo: "HISTORICO",
+    versao: 1,
+    ativo: true,
+    schemaJson: "{}",
+    conteudoMarkdown: `# Historico clinico resumido
+
+Paciente: {{paciente.nome}}
+CPF: {{paciente.cpf}}
+Periodo: {{historico.periodoInicio}} a {{historico.periodoFim}}
+
+{{#historico.itens}}
+## {{dataAtendimento}} - Dr(a). {{medicoNome}}
+
+Resumo: {{resumo}}
+
+Diagnostico: {{diagnostico}}
+
+Conduta: {{conduta}}
+
+{{/historico.itens}}`,
+  },
+  {
+    id: 3,
+    codigo: "PRESCRICAO_SIMPLES",
+    nome: "Prescrição simples",
+    tipo: "PRESCRICAO",
+    versao: 1,
+    ativo: true,
+    schemaJson: "{}",
+    conteudoMarkdown: `# Prescricao medica
+
+Paciente: {{paciente.nome}}
+Data: {{documento.dataEmissao}}
+Medico: {{medico.nome}} - CRM {{medico.crm}}
+
+## Prescricao
+
+{{prontuario.prescricao}}
+
+Orientacoes adicionais:
+
+{{documento.orientacoes}}`,
+  },
+  {
+    id: 4,
+    codigo: "ATESTADO_MEDICO",
+    nome: "Atestado médico",
+    tipo: "ATESTADO",
+    versao: 1,
+    ativo: true,
+    schemaJson: "{}",
+    conteudoMarkdown: `# Atestado medico
+
+Atesto, para os devidos fins, que {{paciente.nome}}, CPF {{paciente.cpf}},
+foi atendido(a) em {{atendimento.dataAtendimento}} e necessita de afastamento
+por {{documento.diasAfastamento}} dia(s), a partir de {{documento.dataInicioAfastamento}}.
+
+CID: {{documento.cid}}
+
+Observacoes: {{documento.observacoes}}
+
+Medico: {{medico.nome}} - CRM {{medico.crm}}`,
+  },
+  {
+    id: 5,
+    codigo: "SOLICITACAO_EXAMES",
+    nome: "Solicitação de exames",
+    tipo: "EXAME",
+    versao: 1,
+    ativo: true,
+    schemaJson: "{}",
+    conteudoMarkdown: `# Solicitacao de exames
+
+Paciente: {{paciente.nome}}
+Data: {{documento.dataEmissao}}
+Medico: {{medico.nome}} - CRM {{medico.crm}}
+
+## Exames solicitados
+
+{{#documento.exames}}
+- {{nome}} - {{justificativa}}
+{{/documento.exames}}
+
+## Observacoes
+
+{{documento.observacoes}}`,
+  },
+];
+
+const SEED_DOCUMENTOS_CLINICOS = [
+  {
+    id: 1,
+    prontuarioId: 1,
+    pacienteId: 1,
+    medicoId: 1,
+    templateCodigo: "PRONTUARIO_CONSULTA_GERAL",
+    templateVersao: 1,
+    tipo: "PRONTUARIO",
+    conteudoMarkdown: "Prontuário emitido no fechamento da consulta.",
+    conteudoHtml: "<pre>Prontuário emitido no fechamento da consulta.</pre>",
+    status: "EMITIDO",
+    emitidoEm: SEED_ATENDIMENTOS[0].dataAtendimento,
+    createdAt: SEED_ATENDIMENTOS[0].dataAtendimento,
+    updatedAt: SEED_ATENDIMENTOS[0].dataAtendimento,
+  },
+];
+
 const SEED_USUARIOS = [
   { id: 1, nome: "Administrador",       email: "admin@saasclinic.com",       role: "ADMIN",          ativo: true,  ultimoAcesso: "2026-05-20 09:14" },
   { id: 2, nome: "Renata Oliveira",     email: "renata.recep@saasclinic.com", role: "RECEPCIONISTA", ativo: true,  ultimoAcesso: "2026-05-20 08:42" },
@@ -129,5 +331,6 @@ const PERSONAS = [
 
 Object.assign(window, {
   SEED_CONVENIOS, SEED_MEDICOS, SEED_PACIENTES, SEED_AGENDAMENTOS, SEED_ATENDIMENTOS, SEED_USUARIOS,
+  SEED_PRONTUARIOS, SEED_TEMPLATES_CLINICOS, SEED_DOCUMENTOS_CLINICOS,
   PERSONAS, pad, ymd, isoLocal, startOfWeek, addDays,
 });

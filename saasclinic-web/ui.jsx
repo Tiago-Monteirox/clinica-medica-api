@@ -179,7 +179,7 @@ function Input({ value, onChange, placeholder, type = "text", icon, error, disab
   );
 }
 
-function Textarea({ value, onChange, placeholder, rows = 4, error }) {
+function Textarea({ value, onChange, placeholder, rows = 4, error, disabled }) {
   const [focused, setFocused] = React.useState(false);
   return (
     <textarea
@@ -189,6 +189,7 @@ function Textarea({ value, onChange, placeholder, rows = 4, error }) {
       onBlur={() => setFocused(false)}
       placeholder={placeholder}
       rows={rows}
+      disabled={disabled}
       style={{
         ...inputBase,
         height: "auto",
@@ -197,6 +198,8 @@ function Textarea({ value, onChange, placeholder, rows = 4, error }) {
         lineHeight: 1.5,
         borderColor: error ? "var(--danger)" : (focused ? "var(--accent)" : "var(--border-strong)"),
         boxShadow: focused && !error ? "0 0 0 3px var(--accent-soft)" : (error ? "0 0 0 3px var(--danger-bg)" : "none"),
+        background: disabled ? "var(--surface-2)" : "var(--surface)",
+        cursor: disabled ? "not-allowed" : "text",
       }}
     />
   );

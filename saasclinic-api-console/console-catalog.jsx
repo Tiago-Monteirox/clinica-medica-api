@@ -323,6 +323,125 @@ const ENDPOINTS = [
     roles: ["ADMIN"],
     pathParams: [{ key: "id", default: "1" }],
   },
+
+  // ===== PRONTUÁRIOS / HISTÓRICO =====
+  {
+    id: "prontuario.getByAtendimento",
+    service: "atendimento", method: "GET",
+    path: "/api/atendimentos/v1/prontuarios/atendimento/{atendimentoId}",
+    name: "Buscar prontuário do atendimento",
+    roles: ["ADMIN", "MEDICO"],
+    pathParams: [{ key: "atendimentoId", default: "1" }],
+  },
+  {
+    id: "prontuario.upsert",
+    service: "atendimento", method: "PUT",
+    path: "/api/atendimentos/v1/prontuarios/atendimento/{atendimentoId}",
+    name: "Salvar rascunho de prontuário",
+    roles: ["MEDICO"],
+    bodyTemplate: {
+      queixaPrincipal: "Cefaleia há 2 dias",
+      historiaDoencaAtual: "Paciente relata dor frontal, sem febre.",
+      resumo: "Paciente estável, orientado e hidratado.",
+      diagnostico: "Cefaleia tensional provável",
+      conduta: "Hidratação, analgesia se necessário e retorno se piora.",
+      prescricao: "Dipirona 500mg 6/6h se dor.",
+      observacoes: "Sem sinais de alarme no momento."
+    },
+    pathParams: [{ key: "atendimentoId", default: "1" }],
+  },
+  {
+    id: "prontuario.finalizar",
+    service: "atendimento", method: "POST",
+    path: "/api/atendimentos/v1/prontuarios/{id}/finalizar",
+    name: "Finalizar prontuário",
+    roles: ["MEDICO"],
+    bodyTemplate: { resumo: "Prontuário revisado e finalizado." },
+    pathParams: [{ key: "id", default: "1" }],
+  },
+  {
+    id: "prontuario.historico",
+    service: "atendimento", method: "GET",
+    path: "/api/atendimentos/v1/prontuarios/paciente/{pacienteId}/historico",
+    name: "Histórico clínico do paciente",
+    roles: ["ADMIN", "MEDICO"],
+    pathParams: [{ key: "pacienteId", default: "1" }],
+  },
+
+  // ===== TEMPLATES / DOCUMENTOS CLÍNICOS =====
+  {
+    id: "templateClinico.list",
+    service: "atendimento", method: "GET",
+    path: "/api/atendimentos/v1/templates-clinicos",
+    name: "Listar templates clínicos",
+    roles: ["ADMIN", "MEDICO"],
+    pathParams: [],
+  },
+  {
+    id: "templateClinico.get",
+    service: "atendimento", method: "GET",
+    path: "/api/atendimentos/v1/templates-clinicos/{codigo}",
+    name: "Buscar template clínico",
+    roles: ["ADMIN", "MEDICO"],
+    pathParams: [{ key: "codigo", default: "PRESCRICAO_SIMPLES" }],
+  },
+  {
+    id: "templateClinico.create",
+    service: "atendimento", method: "POST",
+    path: "/api/atendimentos/v1/templates-clinicos",
+    name: "Criar versão de template clínico",
+    roles: ["ADMIN"],
+    bodyTemplate: {
+      codigo: "ORIENTACAO_DEMO",
+      nome: "Orientação demo",
+      tipo: "PRONTUARIO",
+      conteudoMarkdown: "# Orientação\n\nPaciente: {{paciente.nome}}\n\n{{documento.orientacoes}}",
+      schemaJson: "{}"
+    },
+    pathParams: [],
+  },
+  {
+    id: "documentoClinico.preview",
+    service: "atendimento", method: "POST",
+    path: "/api/atendimentos/v1/documentos-clinicos/preview",
+    name: "Preview de documento clínico",
+    roles: ["MEDICO"],
+    bodyTemplate: {
+      prontuarioId: 1,
+      templateCodigo: "PRESCRICAO_SIMPLES",
+      dadosComplementares: {
+        paciente: { nome: "Paciente Demo", cpf: "00000000000" },
+        medico: { nome: "Dr. Demo", crm: "CRM-DEMO" },
+        documento: { orientacoes: "Manter repouso relativo e hidratação." }
+      }
+    },
+    pathParams: [],
+  },
+  {
+    id: "documentoClinico.create",
+    service: "atendimento", method: "POST",
+    path: "/api/atendimentos/v1/documentos-clinicos",
+    name: "Emitir documento clínico",
+    roles: ["MEDICO"],
+    bodyTemplate: {
+      prontuarioId: 1,
+      templateCodigo: "PRESCRICAO_SIMPLES",
+      dadosComplementares: {
+        paciente: { nome: "Paciente Demo", cpf: "00000000000" },
+        medico: { nome: "Dr. Demo", crm: "CRM-DEMO" },
+        documento: { orientacoes: "Manter repouso relativo e hidratação." }
+      }
+    },
+    pathParams: [],
+  },
+  {
+    id: "documentoClinico.byProntuario",
+    service: "atendimento", method: "GET",
+    path: "/api/atendimentos/v1/documentos-clinicos/prontuario/{prontuarioId}",
+    name: "Documentos do prontuário",
+    roles: ["ADMIN", "MEDICO"],
+    pathParams: [{ key: "prontuarioId", default: "1" }],
+  },
 ];
 
 const SERVICES = [
@@ -391,7 +510,7 @@ const SCENARIOS = [
       },
       { endpoint: "agendamento.create", interpolate: { pacienteId: "{{pacienteId}}", medicoId: "{{medicoId}}" }, capture: { "agendamentoId": "data.id" } },
       { endpoint: "agendamento.update", interpolatePath: { id: "{{agendamentoId}}" }, body: { status: "CONFIRMADO" } },
-      { endpoint: "atendimento.create", interpolate: { agendamentoId: "{{agendamentoId}}" } },
+      { endpoint: "atendimento.create", interpolate: { agendamentoId: "{{agendamentoId}}" }, capture: { "atendimentoId": "data.id" } },
     ],
   },
   {

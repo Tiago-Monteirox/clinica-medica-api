@@ -418,6 +418,72 @@ public class AtendimentoController {
 
 ---
 
+## Prontuário, histórico e templates clínicos
+
+O serviço `atendimento` também concentra o módulo de prontuário clínico. A decisão foi manter essa evolução no mesmo bounded context porque o atendimento já contém `agendamentoId`, `pacienteId`, `medicoId`, `dataAtendimento`, diagnóstico e prescrição.
+
+Estrutura adicionada:
+
+```text
+atendimento/src/main/java/br/edu/imepac/atendimento/
+├── prontuario/
+│   ├── ProntuarioController.java
+│   ├── ProntuarioService.java
+│   ├── ProntuarioRepository.java
+│   ├── ProntuarioEntity.java
+│   ├── StatusProntuario.java
+│   └── dto/
+└── template/
+    ├── TemplateClinicoController.java
+    ├── TemplateClinicoService.java
+    ├── TemplateClinicoRepository.java
+    ├── TemplateClinicoEntity.java
+    ├── DocumentoClinicoController.java
+    ├── DocumentoClinicoService.java
+    ├── DocumentoClinicoEntity.java
+    ├── TemplateClinicoSeeder.java
+    └── renderer/
+```
+
+Templates seedados em `atendimento/src/main/resources/templates-clinicos/`:
+
+- `PRONTUARIO_CONSULTA_GERAL`
+- `HISTORICO_PACIENTE_RESUMIDO`
+- `HISTORICO_PACIENTE_COMPLETO`
+- `PRESCRICAO_SIMPLES`
+- `ATESTADO_MEDICO`
+- `SOLICITACAO_EXAMES`
+
+Endpoints adicionados:
+
+| Método | Rota | Role | Uso |
+|---|---|---|---|
+| `GET` | `/v1/prontuarios/atendimento/{atendimentoId}` | `ADMIN`, `MEDICO` | buscar prontuário do atendimento |
+| `PUT` | `/v1/prontuarios/atendimento/{atendimentoId}` | `MEDICO` | criar/atualizar rascunho |
+| `POST` | `/v1/prontuarios/{id}/finalizar` | `MEDICO` | finalizar prontuário |
+| `GET` | `/v1/prontuarios/paciente/{pacienteId}/historico` | `ADMIN`, `MEDICO` | histórico clínico do paciente |
+| `GET` | `/v1/templates-clinicos` | `ADMIN`, `MEDICO` | listar templates ativos |
+| `GET` | `/v1/templates-clinicos/{codigo}` | `ADMIN`, `MEDICO` | buscar template ativo |
+| `POST` | `/v1/templates-clinicos` | `ADMIN` | criar nova versão |
+| `POST` | `/v1/documentos-clinicos/preview` | `MEDICO` | renderizar sem emitir |
+| `POST` | `/v1/documentos-clinicos` | `MEDICO` | emitir documento |
+| `GET` | `/v1/documentos-clinicos/prontuario/{prontuarioId}` | `ADMIN`, `MEDICO` | documentos do prontuário |
+
+Regras implementadas:
+
+- Um atendimento tem no máximo um prontuário.
+- Rascunho pode ser criado a partir de um atendimento existente.
+- Prontuário finalizado não pode ser alterado livremente.
+- `resumo` é obrigatório para finalizar.
+- Histórico lista prontuários finalizados por padrão e ordena por `dataAtendimento DESC`.
+- Templates são versionados por `(codigo, versao)`; nova versão desativa a anterior.
+- Documento emitido guarda snapshot do código, versão e conteúdo renderizado.
+- Renderer suporta placeholders `{{campo}}` e blocos de lista `{{#lista}}...{{/lista}}`.
+
+Mais detalhes no plano do módulo: [`25-PRONTUARIO-HISTORICO.md`](25-PRONTUARIO-HISTORICO.md).
+
+---
+
 ## Testes manuais
 
 ```bash
@@ -456,14 +522,17 @@ curl http://localhost:8083/v1/atendimentos/paciente/1
 
 ## Checklist
 
-- [ ] `pom.xml` igual ao do agendamento (com Feign)
-- [ ] `application.yml` com `agendamento.url`
-- [ ] `@EnableFeignClients` no Application
-- [ ] `AgendamentoClient` consumindo `GET /v1/agendamentos/{id}`
-- [ ] `AtendimentoEntity` com `agendamentoId` unique
-- [ ] Service valida agendamento existente + status válido + sem duplicação
-- [ ] Banco `clinica_atendimento` criado
-- [ ] Swagger em `http://localhost:8083/swagger-ui.html`
+- [x] `pom.xml` igual ao do agendamento (com Feign)
+- [x] `application.yml` com `agendamento.url`
+- [x] `@EnableFeignClients` no Application
+- [x] `AgendamentoClient` consumindo `GET /v1/agendamentos/{id}`
+- [x] `AtendimentoEntity` com `agendamentoId` unique
+- [x] Service valida agendamento existente + status válido + sem duplicação
+- [x] Banco `clinica_atendimento` criado
+- [x] Swagger em `http://localhost:8083/swagger-ui.html`
+- [x] Prontuário e histórico clínico expostos no Swagger
+- [x] Templates clínicos seedados no boot do `atendimento`
+- [x] API Console lista endpoints de prontuário, histórico, templates e documentos
 
 ---
 

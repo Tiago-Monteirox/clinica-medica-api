@@ -17,6 +17,7 @@ O app cobre:
 - CRUD de convênios, médicos e pacientes;
 - agendamentos com criação, confirmação, cancelamento e edição;
 - atendimentos com registro clínico;
+- prontuários, histórico clínico do paciente, templates clínicos e documentos emitidos;
 - listagem de usuários e criação de usuário via `POST /auth/register`.
 
 ---
@@ -88,6 +89,9 @@ Tokens e usuário logado são armazenados por ambiente no `localStorage`. Logout
 | Pacientes | `/api/admin/v1/pacientes` |
 | Agendamentos | `/api/agendamentos/v1/agendamentos` |
 | Atendimentos | `/api/atendimentos/v1/atendimentos` |
+| Prontuários | `/api/atendimentos/v1/prontuarios/**` |
+| Templates clínicos | `/api/atendimentos/v1/templates-clinicos/**` |
+| Documentos clínicos | `/api/atendimentos/v1/documentos-clinicos/**` |
 
 O frontend faz unwrap do envelope `ApiResponse<T>` e normaliza diferenças de DTO, por exemplo `PacienteResponse.convenio.id` para `convenioId`.
 
@@ -98,6 +102,7 @@ O frontend faz unwrap do envelope `ApiResponse<T>` e normaliza diferenças de DT
 - O backend atual expõe `GET /api/admin/v1/usuarios` e `POST /auth/register`; edição e exclusão de usuários ainda não existem em modo live.
 - O backend não tem `PATCH /agendamentos/{id}/status`; confirmação/cancelamento usam `PUT /api/agendamentos/v1/agendamentos/{id}` com `{ status }`.
 - Ao registrar atendimento, o frontend não força o status do agendamento. O `atendimento` publica evento RabbitMQ e o `agendamento` atualiza para `ATENDIDO` de forma assíncrona.
+- A tela **Prontuários** é liberada para `ADMIN` e `MEDICO`. Escrita clínica e emissão de documentos ficam apenas para `MEDICO`; `ADMIN` visualiza.
 - Acesso rápido por persona é completo no modo mock. No modo live, apenas ADMIN funciona com a seed padrão; outros perfis dependem de usuários reais criados no backend.
 
 ---
@@ -123,4 +128,5 @@ Os 2 podem coexistir em portas separadas, mas o fluxo recomendado é servir o Sa
 - [ ] CRUD de convênios, médicos e pacientes funciona com token ADMIN.
 - [ ] Agendamento cria, confirma e cancela usando rotas reais.
 - [ ] Atendimento registra prontuário e o status do agendamento muda depois do evento RabbitMQ.
+- [x] Tela de prontuários abre em modo mock e live, carrega histórico e documentos.
 - [ ] Tela de usuários lista contas via `/api/admin/v1/usuarios`, cria conta via `/auth/register` e deixa claro que edição/exclusão não existem no backend atual.
